@@ -1,5 +1,18 @@
 # Document Semantic Search API
 
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector%20%2B%20BM25-4169E1?logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-cache%20%2B%20queue-DC382D?logo=redis&logoColor=white)
+![Celery](https://img.shields.io/badge/Celery-workers-37814A?logo=celery&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-14-000000?logo=nextdotjs&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+
+> Upload documents, ask questions in plain English, and get the most relevant passages
+> back — with **four retrieval strategies benchmarked head-to-head** so every design
+> choice is backed by numbers, not intuition.
+
 A document search service that ingests PDFs/text, chunks and embeds them, and serves
 **four retrieval modes** — BM25 (lexical), semantic (vector), hybrid (RRF fusion), and
 a cross-encoder reranker — behind a FastAPI HTTP API. It ships with a **reproducible
@@ -15,14 +28,18 @@ sentence-transformers · a React/Next.js frontend · Docker.
 ## Table of contents
 
 - [Problem statement](#problem-statement)
+- [Skills demonstrated](#skills-demonstrated)
 - [Architecture](#architecture)
 - [Quickstart](#quickstart)
 - [API](#api)
+- [Frontend](#frontend)
 - [Benchmark results](#benchmark-results) ← the core deliverable
 - [Chunking strategy](#chunking-strategy)
 - [Embedding model choice](#embedding-model-choice)
 - [The four search modes](#the-four-search-modes)
 - [Design decisions & tradeoffs](#design-decisions--tradeoffs)
+- [Design Q&A (anticipated interview questions)](#design-qa-anticipated-interview-questions)
+- [Scaling & future work](#scaling--future-work)
 - [Testing](#testing)
 - [Project structure](#project-structure)
 
@@ -40,6 +57,23 @@ The goal was not "a thin wrapper around an embedding API" but a small end-to-end
 that demonstrates: an asynchronous ingestion pipeline, an information-retrieval
 evaluation methodology, and the operational concerns (caching, rate limiting,
 containerization) of serving it.
+
+---
+
+## Skills demonstrated
+
+| Area | What this project shows |
+|---|---|
+| **Backend / APIs** | FastAPI, REST design, async vs. sync tradeoffs, dependency injection, request validation |
+| **Databases** | PostgreSQL, `pgvector` (HNSW ANN), ParadeDB `pg_search` (BM25), raw SQL + SQLAlchemy, index design |
+| **Information retrieval** | BM25, dense embeddings, hybrid fusion (RRF), cross-encoder reranking, retrieve-then-rerank |
+| **ML / AI** | sentence-transformers, bi-encoders vs. cross-encoders, embedding normalization, tokenization limits |
+| **Evaluation** | Precision/Recall/MRR/nDCG, labelled test set design, hyperparameter sweeps, latency percentiles |
+| **Distributed systems** | Celery task queue, Redis broker, background processing, atomic rate limiting via Lua |
+| **Systems thinking** | Caching with TTL, fail-open design, one-DB-serves-both, decoupled worker/API |
+| **DevOps** | Docker multi-stage builds, docker-compose orchestration, healthchecks, model baking |
+| **Frontend** | React/Next.js, Tailwind, client-side data fetching, CORS |
+| **Testing** | pytest, unit + integration, dependency mocking, graceful skips |
 
 ---
 
@@ -295,6 +329,84 @@ Implemented in [`app/search.py`](app/search.py):
 
 ---
 
+## Design Q&A (anticipated interview questions)
+
+**Why PostgreSQL + pgvector instead of a dedicated vector database (Pinecone, Weaviate, Milvus)?**
+One database serves *both* semantic and lexical search, so there's no second system to
+deploy, back up, or keep in sync — the chunks, their embeddings, and their BM25 index
+all live in the same row. For a corpus that fits comfortably in Postgres, this is
+simpler and cheaper. I'd reach for a dedicated vector DB only at a scale where Postgres'
+ANN throughput becomes the bottleneck (see [Scaling](#scaling--future-work)).
+
+**Why ParadeDB `pg_search` for BM25 instead of Elasticsearch/OpenSearch?**
+Same reasoning — it keeps lexical search *inside* Postgres rather than running and
+syncing a separate Elasticsearch cluster. It gives real BM25 (not just Postgres'
+`ts_rank`), so I can honestly say the keyword mode is BM25, and the two retrievers share
+one source of truth.
+
+**Why Celery + Redis instead of FastAPI `BackgroundTasks`?**
+`BackgroundTasks` run *in the API process* — a crash or restart loses the work, and
+heavy CPU jobs still compete with request handling. Celery runs ingestion in a separate,
+independently scalable worker, with durable queuing (the task survives if no worker is
+up) and retries. That's the difference between a demo and something you'd actually
+operate.
+
+**Why Reciprocal Rank Fusion for hybrid instead of a weighted score sum?**
+BM25 scores and cosine similarities live on completely different scales, so a weighted
+sum needs fragile per-corpus normalization. RRF fuses on *rank* instead of score, needs
+no normalization, and is the current industry default. I note its weakness honestly: it
+can reward a spurious lexical match for cross-ranker agreement (see the last row above).
+
+**Why `bge-small` instead of a bigger model or a hosted embedding API (e.g. OpenAI)?**
+It's local, free, MIT-licensed, and CPU-friendly, so the whole project is reproducible
+with no API keys or per-call cost — a hard requirement here. At 384 dims it keeps the
+index small and fast while scoring competitively on MTEB. `bge-base` (768-dim) is a
+drop-in upgrade if quality needs to rise; a hosted API would trade reproducibility for a
+quality bump.
+
+**How do you know the search is actually good — not just "looks fine"?**
+That's the whole point of the [benchmark](#benchmark-results): a labelled query set and
+real metrics (Recall, MRR, nDCG, latency) computed per mode. I don't claim hybrid is best
+— I *measured* it, found the counterintuitive result that BM25 beat semantic on this
+corpus, and can explain why.
+
+**What was the hardest bug?**
+The reranker silently returned wrong results on a query where semantic alone was correct.
+The cross-encoder was fine in isolation (I verified: 0.997 for the right passage) — the
+real cause was upstream: it only re-scored the *fused hybrid* candidates, so a strong
+semantic-only match was voted below the cutoff before the reranker ever saw it. Fix: rerank
+a **high-recall union** of both retrievers. A reranker can only reorder what it's given.
+
+**What would you do differently / what are the weaknesses?**
+BM25 has no stopword/stemming filter yet (a query stopword caused a spurious match) —
+fixable via the ParadeDB tokenizer config. The reranker is impractical on CPU (~11s/query);
+it needs a GPU or a smaller candidate pool. And chunk size is tuned on one small corpus —
+I'd re-sweep it per dataset rather than assume 400 is universal.
+
+---
+
+## Scaling & future work
+
+**Where it would break first, and what I'd do:**
+
+- **ANN throughput** — at millions of vectors, Postgres HNSW query latency and memory grow.
+  First lever: `pgvector` HNSW tuning (`ef_search`) and quantized/`halfvec` embeddings; past
+  that, a dedicated vector store (Milvus/Qdrant) for the ANN tier while keeping metadata in
+  Postgres.
+- **Ingestion volume** — Celery already scales horizontally; I'd add more workers, batch
+  embeddings on a GPU, and stream large PDFs rather than loading them whole.
+- **Reranker latency** — move the cross-encoder to a GPU, shrink the candidate pool, or make
+  rerank an opt-in "high precision" toggle rather than a default.
+- **BM25 quality** — configure the ParadeDB tokenizer with English stemming + stopword
+  removal to kill spurious common-word matches.
+- **Observability** — structured request logging, per-mode latency metrics, and tracing so
+  regressions surface in production (the corpus even documents the pattern).
+- **Nice-to-haves** — answer generation on top of retrieval (RAG), per-user document
+  scoping + auth, and a CI pipeline that runs the benchmark on every change to catch
+  quality regressions.
+
+---
+
 ## Testing
 
 ```bash
@@ -343,8 +455,9 @@ Dockerfile · docker-compose.yml · Makefile
 
 ---
 
-## Notes & possible extensions
+## License
 
-- Benchmark numbers were measured on CPU in Docker; a GPU would make the reranker viable.
-- Natural next steps: a smaller reranker candidate pool, quantized vectors for scale
-  (see `eval/corpus/20_vector_quantization.md`), and per-mode latency budgets.
+MIT — see [LICENSE](LICENSE).
+
+> Note: benchmark numbers were measured on CPU inside Docker (no GPU), so absolute
+> latencies are hardware-dependent; the *relative* ordering across modes is the point.
