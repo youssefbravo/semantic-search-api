@@ -1,0 +1,82 @@
+# Shared environment for the api + worker (DRY via a YAML anchor).
+x-app-env: &app-env
+  DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/semantic_search
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/1
+  CELERY_RESULT_BACKEND: redis://redis:6379/2
+  UPLOAD_DIR: /data/uploads
+
+services:
+  postgres:
+    # ParadeDB bundles BOTH pgvector and pg_search (BM25) in one image, so a single
+    # database serves semantic AND lexical retrieval — no separate search engine.
+    image: paradedb/paradedb:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: semantic_search
+    volumes:
+      # PG18+ (ParadeDB latest) stores data in a major-version subdirectory, so the
+      # mount goes at /var/lib/postgresql, not /var/lib/postgresql/data.
+      - pgdata:/var/lib/postgresql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d semantic_search"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  api:
+    build: .
+    image: semantic-search-api:latest
+    # Initialise the schema (extensions + tables + HNSW/BM25 indexes) once Postgres
+    # is healthy, then serve. init_db is idempotent.
+    command: sh -c "python -m scripts.init_db && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    environment: *app-env
+    volumes:
+      - .:/app                 # live code + benchmark results land on the host
+      - uploads:/data/uploads  # shared with the worker
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    image: semantic-search-frontend:latest
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  worker:
+    build: .
+    image: semantic-search-api:latest  # same image as api; built once
+    command: celery -A app.celery_app:celery_app worker --loglevel=info --concurrency=2
+    environment: *app-env
+    volumes:
+      - .:/app
+      - uploads:/data/uploads  # reads the raw bytes staged by the api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:
