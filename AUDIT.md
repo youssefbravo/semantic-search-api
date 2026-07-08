@@ -56,6 +56,15 @@ Last updated: 2026-07-08 | Phase: 3 (semantic-search repo polish in progress) | 
 - this commit (`ci: add eval guard and repo polish workflow`): CI workflow, eval regression guard, `make eval/check-eval/load`, gitleaks evidence, README badge, and prepared human-required docs.
 - this commit (`docs: add deployment runbook`): server creation, Linux hardening, Docker deploy, Caddy HTTPS, CI/CD sketch, and monitoring plan.
 
+### Independent re-validation (second auditor pass, 2026-07-08 evening)
+Re-ran Codex's work from a clean rebuild (new dep `prometheus-fastapi-instrumentator` required an image rebuild). Evidence captured this session:
+- `pytest -q` → **55 passed** (all green on current HEAD `c716d12`).
+- **Chaos drill B re-run** (the durability acceptance test): uploaded 4 docs, `docker compose kill worker` mid-flight (2 `processing`, 2 `pending`), restarted worker. Result: 2 queued docs → `done` in ~20s; 2 in-flight docs → `done` at ~+280s (redelivered after the 300s `visibility_timeout`). **4/4 recovered**, each with exactly 25 chunks (idempotent re-insert, no duplicates). The Phase-1 durability defect is genuinely fixed.
+- `/health` → 200 `{"status":"ok","checks":{"postgres":true,"redis":true}}`; `/metrics` → 200 Prometheus format.
+- CI parity locally: `ruff check` pass, `mypy` pass (11 files), `check_regression` passes baseline-vs-itself AND correctly **fails** a synthetic 20% nDCG drop (exit 1).
+- Directive-7: no secrets in history; Codex added 4 commits on top of mine with no history rewrite.
+- Open/honest caveats (not blockers): README CI badge 404s until the repo is pushed to GitHub; CI rebuilds the ~4.4GB image every run; in-flight redelivery takes ~300s (tunable `visibility_timeout` trade-off); Phase 4 deploy artifacts (deploy.yml, monitoring, runbook) are prepared but unverified pending a real box (HUMAN-REQUIRED).
+
 ---
 
 ## Phase 0 — evidence (stranger test)
