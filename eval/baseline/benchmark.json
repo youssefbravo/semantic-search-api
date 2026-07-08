@@ -1,0 +1,39 @@
+{
+  "k": 5,
+  "n_queries": 59,
+  "repeats": 1,
+  "modes": {
+    "keyword": {
+      "precision_at_5": 0.2034,
+      "recall_at_5": 0.9576,
+      "mrr": 0.9181,
+      "ndcg_at_5": 0.9271,
+      "latency_p50_ms": 6.94,
+      "latency_p95_ms": 11.63
+    },
+    "semantic": {
+      "precision_at_5": 0.2068,
+      "recall_at_5": 0.9661,
+      "mrr": 0.8983,
+      "ndcg_at_5": 0.9143,
+      "latency_p50_ms": 32.29,
+      "latency_p95_ms": 56.75
+    },
+    "hybrid": {
+      "precision_at_5": 0.2102,
+      "recall_at_5": 0.9915,
+      "mrr": 0.9718,
+      "ndcg_at_5": 0.9725,
+      "latency_p50_ms": 34.35,
+      "latency_p95_ms": 43.77
+    },
+    "rerank": {
+      "precision_at_5": 0.2102,
+      "recall_at_5": 0.9831,
+      "mrr": 0.9746,
+      "ndcg_at_5": 0.9768,
+      "latency_p50_ms": 11802.71,
+      "latency_p95_ms": 12561.37
+    }
+  }
+}

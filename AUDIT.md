@@ -1,6 +1,6 @@
 # Audit Status — semantic-search-api
 
-Last updated: 2026-07-08 | Phase: 1 (verification complete; worker-durability fix applied) | Overall Trust Contract: 2/6 fully checked (#2,#3), 2 partial (#1,#4)
+Last updated: 2026-07-08 | Phase: 3 (semantic-search repo polish in progress) | Overall Trust Contract: 2/6 fully checked (#2,#3), 2 partial (#1,#4)
 
 > Single source of truth for this audit. On a new session, read this file first and resume from the recorded phase.
 > Evidence rule: a box is ☑ **only** when a command was run **this session** and its output is quoted here.
@@ -30,7 +30,7 @@ Last updated: 2026-07-08 | Phase: 1 (verification complete; worker-durability fi
 | 1 | Stranger test ≤5 min | ⚠ PARTIAL | Onboarding **path** verified working from a fresh clone this session (see below). The **≤5-min wall-clock** was NOT verified cold — Docker layers were cached, so build finished in ~16s. A genuine cold machine downloads ~4.4GB (CPU torch + 2 models); that one-time build almost certainly exceeds 5 min. Needs either a cold-cache measurement or a README note. |
 | 2 | Claim table fully verified | ☑ | C0-C8 verified. C7 was false, then fixed this session and re-verified with tests + worker-kill chaos drill. |
 | 3 | Hostile-input suite: zero unhandled 500s | ☑ | `test_hostile_inputs.py` 21 passed (empty/10k/emoji/CJK/RTL/SQL/HTML/malformed-JSON/wrong-CT/0-byte/oversized/exe/corrupt) + chaos drills A/C — **zero 500s observed anywhere** this phase. |
-| 4 | Eval numbers committed + CI regression guard | ⚠ PARTIAL | Numbers reproduced + already committed in README (C8). CI regression guard = Phase 3. |
+| 4 | Eval numbers committed + CI regression guard | ⚠ PARTIAL | Numbers reproduced + committed in README (C8). CI workflow + local regression guard added and verified, but GitHub badge cannot be called green until pushed and run remotely. |
 | 5 | Live URL + monitoring screenshot | ☐ | Phase 4 (HUMAN-REQUIRED box creation) |
 | 6 | Two human testers passed core flows | ☐ | HUMAN-REQUIRED |
 
@@ -40,7 +40,9 @@ Last updated: 2026-07-08 | Phase: 1 (verification complete; worker-durability fi
 (Items only you can do.)
 - [x] (Phase 0) Approved README Limitations + cold-build note (proceed-no-comments). Committed `3467e8d`.
 - [x] **(Phase 1) GO / NO-GO on the worker-durability fix**. User chose option A. Fixed Celery config + task durability and re-ran chaos drill B successfully.
-- [ ] (Phase 3) demo GIF shot list + human-tester protocol (prepared then).
+- [ ] (Phase 3) approve Mermaid architecture diagram before README insertion (`docs/architecture.md` prepared).
+- [ ] (Phase 3) record demo GIF/video and link it from README (`docs/demo_gif_shot_list.md` prepared).
+- [ ] (Phase 3) run two human testers through the protocol and record outcomes.
 
 ---
 
@@ -50,6 +52,7 @@ Last updated: 2026-07-08 | Phase: 1 (verification complete; worker-durability fi
 - `185deb8` test: Phase 1 correctness suite (RRF, hostile, rate-limit, cache, ETL, modes) — 36 new tests, all green.
 - (test-only self-correction) cache-key test initially asserted internal-whitespace collapse; corrected to real contract (strip+lower only). No production code changed.
 - this commit (`fix: make ingestion durable across worker crashes`): `acks_late=True`, `prefetch=1`, `reject_on_worker_lost=True`, Redis `visibility_timeout=300`, declarative autoretry, idempotent chunk replacement, and staged-file cleanup only after success/final failure.
+- this commit (`ci: add eval guard and repo polish workflow`): CI workflow, eval regression guard, `make eval/check-eval/load`, gitleaks evidence, README badge, and prepared human-required docs.
 
 ---
 
@@ -123,3 +126,52 @@ C  restart Postgres        -> data survived (29 chunks), search recovered to 200
 ```
 Prior orphan files may exist from earlier failed drills. New ingestions keep staged files
 through retryable failures, then clean them up after success or final failure.
+
+---
+
+## Phase 3 — evidence (repo polish)
+
+### CI / lint / type / test / eval guard
+```
+docker compose exec -T api ruff check app eval scripts tests
+-> All checks passed!
+
+docker compose exec -T api mypy --ignore-missing-imports --follow-imports=skip \
+  app/config.py app/schemas.py app/models.py app/cache.py app/ratelimit.py \
+  eval/metrics.py eval/check_regression.py scripts/loadtest.py scripts/init_db.py
+-> Success: no issues found in 9 source files
+
+docker compose exec -T api pytest -q
+-> 53 passed
+
+docker compose exec -T api python -m eval.ingest_corpus --reset
+-> Done. 22 documents, 29 chunks total.
+
+docker compose exec -T api python -m eval.run_benchmark --k 5 --repeats 1
+-> keyword nDCG@5 0.899; semantic 0.914; hybrid 0.949; rerank 0.977
+
+docker compose exec -T api python -m eval.check_regression --max-drop 0.05
+-> Benchmark regression check passed: ndcg_at_5 stayed within 5% of baseline for all modes.
+```
+
+Added `.github/workflows/ci.yml` to run Docker build/start, ruff, mypy, corpus ingest,
+pytest, benchmark, and the nDCG regression guard on push / pull request. Badge added to
+README, but remote green status is not verified until the workflow runs on GitHub.
+
+### Makefile / load
+```
+python scripts/loadtest.py --mode hybrid --n 20 --concurrency 2 --unique
+-> 20 ok; status codes {200: 20}; throughput 120.4 req/s; p95 60.8 ms
+```
+
+Added `make eval`, `make check-eval`, and `make load`.
+
+### Secrets scan
+```
+docker run --rm -v "${repo}:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source=/repo --redact --no-banner
+-> 6 commits scanned; no leaks found
+```
+
+### Human-required docs prepared
+- `docs/architecture.md` contains a Mermaid architecture diagram for approval before README insertion.
+- `docs/demo_gif_shot_list.md` contains the 60-90 second demo plan and human tester protocol.

@@ -7,6 +7,7 @@
 ![Celery](https://img.shields.io/badge/Celery-workers-37814A?logo=celery&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-14-000000?logo=nextdotjs&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white)
+![CI](https://github.com/youssefbravo/semantic-search-api/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 > Upload documents, ask questions in plain English, and get the most relevant passages
@@ -430,8 +431,7 @@ part of the design:
 - **Observability** — structured request logging, per-mode latency metrics, and tracing so
   regressions surface in production (the corpus even documents the pattern).
 - **Nice-to-haves** — answer generation on top of retrieval (RAG), per-user document
-  scoping + auth, and a CI pipeline that runs the benchmark on every change to catch
-  quality regressions.
+  scoping + auth, plus production tracing/CD once the service is deployed.
 
 ---
 
@@ -439,6 +439,9 @@ part of the design:
 
 ```bash
 docker compose exec api pytest
+make eval
+make check-eval
+make load
 ```
 
 - **Unit** (run anywhere): benchmark metrics, the chunker's token-budget invariant and

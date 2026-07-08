@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main, audit/phase-0]
+  pull_request:
+
+jobs:
+  test-and-eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build and start stack
+        run: docker compose up -d --build
+
+      - name: Install CI-only lint/type tools
+        run: docker compose exec -T api python -m pip install ruff==0.8.4 mypy==1.14.1
+
+      - name: Lint
+        run: docker compose exec -T api ruff check app eval scripts tests
+
+      - name: Type check
+        run: >
+          docker compose exec -T api mypy
+          --ignore-missing-imports
+          --follow-imports=skip
+          app/config.py
+          app/schemas.py
+          app/models.py
+          app/cache.py
+          app/ratelimit.py
+          eval/metrics.py
+          eval/check_regression.py
+          scripts/loadtest.py
+          scripts/init_db.py
+
+      - name: Ingest evaluation corpus
+        run: docker compose exec -T api python -m eval.ingest_corpus --reset
+
+      - name: Run tests
+        run: docker compose exec -T api pytest -q
+
+      - name: Run benchmark
+        run: docker compose exec -T api python -m eval.run_benchmark --k 5 --repeats 1
+
+      - name: Check benchmark regression
+        run: docker compose exec -T api python -m eval.check_regression --max-drop 0.05
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop stack
+        if: always()
+        run: docker compose down
