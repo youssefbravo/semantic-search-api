@@ -215,3 +215,24 @@ Implemented locally: `/health` checks Postgres + Redis, `/metrics` is exposed,
 `INGEST_API_KEY` optionally protects `POST /documents`, Prometheus/Grafana compose
 services are configured, Grafana provisions a starter dashboard, and a manual deploy
 workflow is scaffolded for later server secrets.
+
+### Phase 4 deployment templates
+```
+docker compose config --quiet
+-> OK
+
+docker compose --env-file deploy/.env.prod.example \
+  -f docker-compose.yml \
+  -f deploy/docker-compose.prod.yml \
+  --profile monitoring \
+  config --quiet
+-> OK
+```
+
+Added production deployment templates:
+- `deploy/docker-compose.prod.yml` adds restart policies, Caddy on 80/443, production Grafana credentials, and required `INGEST_API_KEY`.
+- `deploy/Caddyfile` routes API, frontend, and Grafana domains to internal services.
+- `deploy/.env.prod.example` documents required production domains/secrets.
+- `deploy/bootstrap_ubuntu.sh` bootstraps a fresh Ubuntu server with a deploy user, firewall, fail2ban, Git, and Docker.
+
+Base compose now binds host ports to `127.0.0.1` so Postgres/Redis/API/frontend/monitoring are not accidentally public on a cloud box; Caddy is the intended public entrypoint.

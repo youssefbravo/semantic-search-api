@@ -57,14 +57,20 @@ docker compose version
 git clone https://github.com/youssefbravo/semantic-search-api.git
 cd semantic-search-api
 cp .env.example .env
+cp deploy/.env.prod.example .env.prod
 ```
 
-Edit `.env` on the server only. Use production passwords. Never commit `.env`.
+Edit `.env` and `.env.prod` on the server only. Use production passwords/domains.
+Never commit real env files.
 
 ## 5. Start The Stack
 
 ```bash
-docker compose up -d --build
+docker compose --env-file .env.prod \
+  -f docker-compose.yml \
+  -f deploy/docker-compose.prod.yml \
+  --profile monitoring \
+  up -d --build
 docker compose exec api python -m eval.ingest_corpus --reset
 curl http://localhost:8000/health
 ```
@@ -79,31 +85,17 @@ Expected local health response today:
 
 ## 6. HTTPS Reverse Proxy
 
-Use Caddy for automatic Let's Encrypt certificates.
-
-Example `/etc/caddy/Caddyfile`:
-
-```caddyfile
-api.example.com {
-    reverse_proxy localhost:8000
-}
-
-search.example.com {
-    reverse_proxy localhost:3000
-}
-```
-
-Then:
+The production compose override runs Caddy for automatic Let's Encrypt certificates.
+Set these in `.env.prod`:
 
 ```bash
-sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
-sudo apt update
-sudo apt install -y caddy
-sudo caddy validate --config /etc/caddy/Caddyfile
-sudo systemctl reload caddy
+API_DOMAIN=api.example.com
+WEB_DOMAIN=search.example.com
+GRAFANA_DOMAIN=grafana.example.com
 ```
+
+The template lives at `deploy/Caddyfile`; Caddy is a container, so no host-level Caddy
+install is required.
 
 ## 7. Deployment Smoke Test
 
@@ -126,7 +118,7 @@ After the server is reachable, add GitHub Actions repository secrets:
 Deployment job shape:
 
 ```bash
-ssh deploy@$DEPLOY_HOST "cd $DEPLOY_PATH && git pull && docker compose up -d --build"
+ssh deploy@$DEPLOY_HOST "cd $DEPLOY_PATH && git pull --ff-only && docker compose --env-file .env.prod -f docker-compose.yml -f deploy/docker-compose.prod.yml --profile monitoring up -d --build"
 ```
 
 Do this only after the `CI` workflow is green on `main`.

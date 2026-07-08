@@ -26,4 +26,4 @@ jobs:
       - name: Pull and restart stack
         run: |
           ssh -i ~/.ssh/deploy_key "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "cd '${{ secrets.DEPLOY_PATH }}' && git pull --ff-only && docker compose up -d --build"
+            "cd '${{ secrets.DEPLOY_PATH }}' && git pull --ff-only && docker compose --env-file .env.prod -f docker-compose.yml -f deploy/docker-compose.prod.yml --profile monitoring up -d --build"
