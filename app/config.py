@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"
+    redis_visibility_timeout_seconds: int = 300
 
     # --- Embedding model ---
     # bge-small-en-v1.5: 384-dim, ~33M params, MIT licence, strong MTEB retrieval
@@ -48,6 +49,7 @@ class Settings(BaseSettings):
     # --- Caching ---
     cache_enabled: bool = True
     cache_ttl_seconds: int = 300  # bound how stale a cached result can be
+    metrics_enabled: bool = True
 
     # --- Rate limiting (token bucket) ---
     rate_limit_enabled: bool = True
@@ -60,6 +62,7 @@ class Settings(BaseSettings):
     # --- Uploads ---
     upload_dir: str = "./data/uploads"
     max_upload_mb: int = 25
+    ingest_api_key: str | None = None
 
 
 @lru_cache

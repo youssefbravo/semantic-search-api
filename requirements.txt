@@ -13,6 +13,7 @@ pgvector==0.3.6                 # SQLAlchemy Vector type + ops
 # --- Background processing ---
 celery[redis]==5.4.0
 redis==5.2.1
+prometheus-fastapi-instrumentator==7.0.2
 
 # --- ML / embeddings ---
 sentence-transformers==3.3.1

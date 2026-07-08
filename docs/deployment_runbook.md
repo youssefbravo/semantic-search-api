@@ -72,10 +72,10 @@ curl http://localhost:8000/health
 Expected local health response today:
 
 ```json
-{"status":"ok"}
+{"status":"ok","checks":{"postgres":true,"redis":true}}
 ```
 
-Phase 4 runtime improvement pending approval: upgrade `/health` to check Postgres and Redis, not just process liveness.
+`/health` checks Postgres and Redis, not just process liveness.
 
 ## 6. HTTPS Reverse Proxy
 
@@ -138,12 +138,25 @@ Minimum public proof:
 - UptimeRobot ping for `/health`
 - Grafana screenshot showing request rate, p95 latency, error rate, and Celery queue depth
 
-Implementation TODOs:
+Implemented locally:
 
-- Add `prometheus-fastapi-instrumentator`
-- Add Prometheus and Grafana services to compose
-- Add Celery queue-depth exporter or a small Redis `LLEN celery` metric
-- Protect Grafana with a strong password and never commit it
+- `/metrics` is exposed by FastAPI when `METRICS_ENABLED=true`.
+- Prometheus runs on `:9090` and scrapes `api:8000/metrics`.
+- Grafana runs on `:3001` with default local credentials `admin` / `admin`.
+- Grafana provisions the `Semantic Search API` dashboard automatically.
+
+Start monitoring locally with:
+
+```bash
+docker compose --profile monitoring up -d prometheus grafana
+```
+
+Production TODOs:
+
+- Change the Grafana admin password before exposing it.
+- Put Grafana behind Caddy/auth or keep it private over SSH tunnel/VPN.
+- Add Celery queue-depth metrics (`LLEN celery`) for queue visibility.
+- Capture a dashboard screenshot for the README after deployment.
 
 ## 10. Public Guardrails
 
@@ -151,6 +164,6 @@ Before public launch:
 
 - Keep rate limiting enabled.
 - Keep upload cap enabled.
-- Add simple auth/API key to ingestion endpoints.
+- Set `INGEST_API_KEY` so `POST /documents` requires `X-API-Key`.
 - Use production database/Redis passwords.
 - Confirm `gitleaks detect` still reports no leaks.

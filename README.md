@@ -116,6 +116,8 @@ containerization) of serving it.
   engine to operate.
 - **Redis** does triple duty: Celery broker/result backend, query-result cache, and the
   token-bucket rate limiter's shared state.
+- **Operational endpoints** expose dependency health (`/health`) and Prometheus metrics
+  (`/metrics`) for deployment and monitoring.
 
 ---
 
@@ -156,10 +158,23 @@ http://localhost:3000**. A `Makefile` wraps the common commands (`make up`,
 | `POST` | `/documents` | Upload a PDF/text file. Returns `202` + a document id. |
 | `GET`  | `/documents/{id}` | Ingestion status: `pending → processing → done / failed`. |
 | `POST` | `/search` | Search. Body: `{query, mode, k}`. `mode ∈ {keyword, semantic, hybrid, rerank}`. |
-| `GET`  | `/health` | Liveness check. |
+| `GET`  | `/health` | Dependency health check for Postgres + Redis. |
+| `GET`  | `/metrics` | Prometheus metrics for request rate, latency, and status codes. |
 
 Interactive docs at `http://localhost:8000/docs`. The search endpoint is rate-limited
 (token bucket) and caches identical queries.
+
+For public deployments, set `INGEST_API_KEY` and send `X-API-Key` on `POST /documents`.
+When unset, uploads stay open for local demos and the README quickstart.
+
+Optional local monitoring:
+
+```bash
+docker compose --profile monitoring up -d prometheus grafana
+```
+
+Prometheus runs at `http://localhost:9090`; Grafana runs at `http://localhost:3001`
+and provisions the `Semantic Search API` dashboard automatically.
 
 ---
 

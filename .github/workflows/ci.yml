@@ -33,6 +33,8 @@ jobs:
           app/models.py
           app/cache.py
           app/ratelimit.py
+          app/main.py
+          app/routers/documents.py
           eval/metrics.py
           eval/check_regression.py
           scripts/loadtest.py

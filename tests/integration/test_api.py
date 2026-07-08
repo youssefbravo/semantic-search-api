@@ -18,12 +18,14 @@ def client():
     from sqlalchemy import text
 
     from app.db import engine
+    from app.redis_client import get_redis
 
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
+        get_redis().ping()
     except Exception:  # noqa: BLE001
-        pytest.skip("Postgres not reachable")
+        pytest.skip("Postgres/Redis not reachable")
 
     from fastapi.testclient import TestClient
 
@@ -36,6 +38,13 @@ def test_health(client):
     r = client.get("/health")
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
+    assert r.json()["checks"] == {"postgres": True, "redis": True}
+
+
+def test_metrics_endpoint_is_exposed(client):
+    r = client.get("/metrics")
+    assert r.status_code == 200
+    assert "http_requests_total" in r.text
 
 
 def test_upload_returns_202_without_worker(client, monkeypatch):
@@ -60,6 +69,33 @@ def test_upload_returns_202_without_worker(client, monkeypatch):
     status = client.get(f"/documents/{body['id']}")
     assert status.status_code == 200
     assert status.json()["status"] == "pending"
+
+
+def test_upload_requires_api_key_when_configured(client, monkeypatch):
+    import app.routers.documents as documents
+
+    monkeypatch.setattr(documents.settings, "ingest_api_key", "secret-key")
+    monkeypatch.setattr(documents.ingest_document, "delay", lambda *a, **k: None)
+
+    no_key = client.post(
+        "/documents",
+        files={"file": ("note.txt", b"Hello world.", "text/plain")},
+    )
+    assert no_key.status_code == 401
+
+    bad_key = client.post(
+        "/documents",
+        files={"file": ("note.txt", b"Hello world.", "text/plain")},
+        headers={"X-API-Key": "wrong"},
+    )
+    assert bad_key.status_code == 401
+
+    good_key = client.post(
+        "/documents",
+        files={"file": ("note.txt", b"Hello world.", "text/plain")},
+        headers={"X-API-Key": "secret-key"},
+    )
+    assert good_key.status_code == 202
 
 
 def test_empty_query_is_rejected(client):

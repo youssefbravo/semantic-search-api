@@ -18,8 +18,12 @@ celery_app.conf.update(
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
-    broker_transport_options={"visibility_timeout": 300},
-    result_backend_transport_options={"visibility_timeout": 300},
+    broker_transport_options={
+        "visibility_timeout": settings.redis_visibility_timeout_seconds
+    },
+    result_backend_transport_options={
+        "visibility_timeout": settings.redis_visibility_timeout_seconds
+    },
     worker_prefetch_multiplier=1,
     # torch can grow worker memory over time; recycle children periodically.
     worker_max_tasks_per_child=50,

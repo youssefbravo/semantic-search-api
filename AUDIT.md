@@ -177,3 +177,32 @@ docker run --rm -v "${repo}:/repo" ghcr.io/gitleaks/gitleaks:latest detect --sou
 ### Human-required docs prepared
 - `docs/architecture.md` contains a Mermaid architecture diagram for approval before README insertion.
 - `docs/demo_gif_shot_list.md` contains the 60-90 second demo plan and human tester protocol.
+
+### Phase 4 local hardening prepared
+```
+curl http://localhost:8000/health
+-> {"status":"ok","checks":{"postgres":true,"redis":true}}
+
+curl http://localhost:8000/metrics
+-> exposes process metrics and http_requests_total
+
+docker compose exec -T api pytest -q
+-> 55 passed
+
+docker compose exec -T api ruff check app eval scripts tests
+-> All checks passed!
+
+docker compose exec -T api mypy --ignore-missing-imports --follow-imports=skip ...
+-> Success: no issues found in 11 source files
+
+curl http://localhost:9090/api/v1/targets
+-> Prometheus target semantic-search-api health="up"
+
+curl -u admin:admin http://localhost:3001/api/search?query=Semantic
+-> Semantic Search API dashboard found
+```
+
+Implemented locally: `/health` checks Postgres + Redis, `/metrics` is exposed,
+`INGEST_API_KEY` optionally protects `POST /documents`, Prometheus/Grafana compose
+services are configured, Grafana provisions a starter dashboard, and a manual deploy
+workflow is scaffolded for later server secrets.

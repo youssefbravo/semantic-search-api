@@ -1,9 +1,12 @@
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from .config import get_settings
+from .db import engine
+from .redis_client import get_redis
 from .routers import documents, search
 
 logging.basicConfig(
@@ -31,7 +34,36 @@ app.add_middleware(
 app.include_router(documents.router)
 app.include_router(search.router)
 
+if settings.metrics_enabled:
+    try:
+        from prometheus_fastapi_instrumentator import Instrumentator
+
+        Instrumentator().instrument(app).expose(app, endpoint="/metrics", tags=["meta"])
+    except ImportError:
+        logging.warning(
+            "METRICS_ENABLED=true but prometheus-fastapi-instrumentator is not installed"
+        )
+
 
 @app.get("/health", tags=["meta"])
 def health() -> dict:
-    return {"status": "ok"}
+    checks = {"postgres": False, "redis": False}
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        checks["postgres"] = True
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "unhealthy", "checks": checks, "error": str(exc)},
+        ) from exc
+
+    try:
+        checks["redis"] = bool(get_redis().ping())
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "unhealthy", "checks": checks, "error": str(exc)},
+        ) from exc
+
+    return {"status": "ok", "checks": checks}

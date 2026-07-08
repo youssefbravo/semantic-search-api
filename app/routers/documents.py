@@ -1,7 +1,8 @@
 import os
+import secrets
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
@@ -14,9 +15,20 @@ settings = get_settings()
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
+def require_ingest_api_key(x_api_key: str | None = Header(default=None)) -> None:
+    if settings.ingest_api_key is None:
+        return
+    if x_api_key is None or not secrets.compare_digest(
+        x_api_key, settings.ingest_api_key
+    ):
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+
 @router.post("", response_model=DocumentCreatedResponse, status_code=202)
 def upload_document(
-    file: UploadFile = File(...), db: Session = Depends(get_db)
+    file: UploadFile = File(...),
+    _: None = Depends(require_ingest_api_key),
+    db: Session = Depends(get_db),
 ) -> DocumentCreatedResponse:
     """Accept a PDF/text document, persist it, and enqueue background ingestion.
 
