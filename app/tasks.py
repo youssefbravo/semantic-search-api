@@ -1,6 +1,8 @@
 import logging
 import os
 
+from sqlalchemy import delete
+
 from .celery_app import celery_app
 from .chunking import chunk_text
 from .db import SessionLocal
@@ -11,7 +13,15 @@ from .parsing import extract_text
 logger = logging.getLogger(__name__)
 
 
-@celery_app.task(name="ingest_document", bind=True, max_retries=2)
+@celery_app.task(
+    name="ingest_document",
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=30,
+    retry_jitter=True,
+    max_retries=2,
+)
 def ingest_document(self, document_id: str, raw_path: str) -> None:
     """Background ingestion: parse -> chunk -> embed -> store.
 
@@ -26,8 +36,15 @@ def ingest_document(self, document_id: str, raw_path: str) -> None:
         if doc is None:
             logger.error("Document %s vanished before ingestion", document_id)
             return
+        if doc.status == DocStatus.done:
+            logger.info(
+                "Document %s already ingested; skipping duplicate delivery",
+                document_id,
+            )
+            return
 
         doc.status = DocStatus.processing
+        doc.error = None
         db.commit()
 
         with open(raw_path, "rb") as f:
@@ -40,9 +57,11 @@ def ingest_document(self, document_id: str, raw_path: str) -> None:
             doc.status = DocStatus.done
             db.commit()
             logger.warning("Document %s produced no chunks (empty text)", document_id)
+            _remove_staged_file(raw_path)
             return
 
         vectors = embed_passages([c.content for c in chunks])
+        db.execute(delete(Chunk).where(Chunk.document_id == doc.id))
         db.add_all(
             [
                 Chunk(
@@ -59,19 +78,27 @@ def ingest_document(self, document_id: str, raw_path: str) -> None:
         doc.status = DocStatus.done
         db.commit()
         logger.info("Ingested %s: %d chunks", document_id, len(chunks))
+        _remove_staged_file(raw_path)
 
     except Exception as exc:  # noqa: BLE001 - we record + re-raise for Celery retry
         db.rollback()
-        doc = db.get(Document, document_id)
-        if doc is not None:
-            doc.status = DocStatus.failed
-            doc.error = str(exc)[:1000]
-            db.commit()
+        if self.request.retries >= self.max_retries:
+            doc = db.get(Document, document_id)
+            if doc is not None:
+                doc.status = DocStatus.failed
+                doc.error = str(exc)[:1000]
+                doc.num_chunks = 0
+                db.execute(delete(Chunk).where(Chunk.document_id == doc.id))
+                db.commit()
+            _remove_staged_file(raw_path)
         logger.exception("Ingestion failed for %s", document_id)
         raise
     finally:
         db.close()
-        try:
-            os.remove(raw_path)  # best-effort cleanup of staged upload
-        except OSError:
-            pass
+
+
+def _remove_staged_file(raw_path: str) -> None:
+    try:
+        os.remove(raw_path)
+    except OSError:
+        pass

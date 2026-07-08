@@ -113,7 +113,9 @@ def _fresh_doc():
     return doc_id
 
 
-def test_ingestion_failure_marks_failed_and_leaves_no_partial_chunks(tmp_path, monkeypatch):
+def test_final_ingestion_failure_marks_failed_and_leaves_no_partial_chunks(
+    tmp_path, monkeypatch
+):
     """A parse/embed failure must: re-raise, set status=failed with the error, and
     leave ZERO chunks for the doc (atomic commit => the index stays consistent)."""
     from sqlalchemy import select
@@ -137,14 +139,20 @@ def test_ingestion_failure_marks_failed_and_leaves_no_partial_chunks(tmp_path, m
     # Force the pipeline to blow up mid-task.
     monkeypatch.setattr(tasks, "extract_text", lambda *a, **k: (_ for _ in ()).throw(ValueError("boom")))
 
-    with pytest.raises(ValueError, match="boom"):
-        tasks.ingest_document.run(str(doc_id), str(raw))
+    prev_retries = tasks.ingest_document.request.retries
+    tasks.ingest_document.request.retries = tasks.ingest_document.max_retries
+    try:
+        with pytest.raises(ValueError, match="boom"):
+            tasks.ingest_document.run(str(doc_id), str(raw))
+    finally:
+        tasks.ingest_document.request.retries = prev_retries
 
     db = SessionLocal()
     try:
         doc = db.get(Document, doc_id)
         assert doc.status == DocStatus.failed
         assert "boom" in (doc.error or "")
+        assert not raw.exists()
         n_chunks = db.execute(
             select(Chunk).where(Chunk.document_id == doc_id)
         ).all()
@@ -158,17 +166,64 @@ def test_ingestion_failure_marks_failed_and_leaves_no_partial_chunks(tmp_path, m
         db.close()
 
 
-def test_retry_is_NOT_actually_configured():
-    """DOCUMENTS A REAL GAP (see AUDIT.md C7): the task sets max_retries=2 but never
-    calls self.retry() and configures no autoretry_for, so an unhandled exception does
-    NOT retry — it fails immediately. This test pins that reality so the README claim
-    can be corrected (or the code fixed to make the claim true)."""
+def test_intermediate_ingestion_failure_keeps_raw_file(tmp_path, monkeypatch):
+    """A retryable failure keeps the staged upload and leaves the index clean."""
+    from sqlalchemy import select
+
+    from app.db import SessionLocal
+    from app.models import Chunk, DocStatus, Document
     import app.tasks as tasks
 
-    # No declarative autoretry.
-    assert getattr(tasks.ingest_document, "autoretry_for", ()) in ((), None)
-    # And the source performs a bare re-raise, not self.retry(...).
-    import inspect
+    try:
+        from app.db import engine
 
-    src = inspect.getsource(tasks.ingest_document)
-    assert "self.retry" not in src, "if this fires, retries were wired — update the claim to TRUE"
+        with engine.connect() as conn:
+            conn.execute(select(1))
+    except Exception:  # noqa: BLE001
+        pytest.skip("Postgres not reachable")
+
+    doc_id = _fresh_doc()
+    raw = tmp_path / f"{doc_id}.txt"
+    raw.write_bytes(b"whatever")
+
+    monkeypatch.setattr(
+        tasks,
+        "extract_text",
+        lambda *a, **k: (_ for _ in ()).throw(ValueError("temporary boom")),
+    )
+
+    prev_retries = tasks.ingest_document.request.retries
+    tasks.ingest_document.request.retries = 0
+    try:
+        with pytest.raises(ValueError, match="temporary boom"):
+            tasks.ingest_document.run(str(doc_id), str(raw))
+    finally:
+        tasks.ingest_document.request.retries = prev_retries
+
+    assert raw.exists(), "raw file must survive until retries are exhausted"
+
+    db = SessionLocal()
+    try:
+        doc = db.get(Document, doc_id)
+        assert doc.status == DocStatus.processing
+        assert doc.error is None
+        n_chunks = db.execute(select(Chunk).where(Chunk.document_id == doc_id)).all()
+        assert n_chunks == []
+    finally:
+        doc = db.get(Document, doc_id)
+        if doc:
+            db.delete(doc)
+            db.commit()
+        db.close()
+
+
+def test_retry_is_actually_configured():
+    """The Celery task now has declarative retries and late-ack durability settings."""
+    import app.tasks as tasks
+
+    assert getattr(tasks.ingest_document, "autoretry_for", ()) == (Exception,)
+    assert tasks.ingest_document.max_retries == 2
+    assert tasks.celery_app.conf.task_acks_late is True
+    assert tasks.celery_app.conf.task_reject_on_worker_lost is True
+    assert tasks.celery_app.conf.broker_transport_options["visibility_timeout"] == 300
+    assert tasks.celery_app.conf.worker_prefetch_multiplier == 1

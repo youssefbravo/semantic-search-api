@@ -354,7 +354,8 @@ one source of truth.
 heavy CPU jobs still compete with request handling. Celery runs ingestion in a separate,
 independently scalable worker, with durable queuing (the task survives if no worker is
 up) and retries. That's the difference between a demo and something you'd actually
-operate.
+operate. If a worker is killed mid-task, Redis redelivers the unacked task after the
+configured 5-minute visibility timeout.
 
 **Why Reciprocal Rank Fusion for hybrid instead of a weighted score sum?**
 BM25 scores and cosine similarities live on completely different scales, so a weighted

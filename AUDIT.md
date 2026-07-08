@@ -1,6 +1,6 @@
 # Audit Status — semantic-search-api
 
-Last updated: 2026-07-08 | Phase: 1 (verification complete; 1 behavior-fix awaiting GO) | Overall Trust Contract: 1/6 fully checked (#3), 3 partial (#1,#2,#4)
+Last updated: 2026-07-08 | Phase: 1 (verification complete; worker-durability fix applied) | Overall Trust Contract: 2/6 fully checked (#2,#3), 2 partial (#1,#4)
 
 > Single source of truth for this audit. On a new session, read this file first and resume from the recorded phase.
 > Evidence rule: a box is ☑ **only** when a command was run **this session** and its output is quoted here.
@@ -19,7 +19,7 @@ Last updated: 2026-07-08 | Phase: 1 (verification complete; 1 behavior-fix await
 | C4 | Hybrid RRF works | `test_rrf_fusion.py` — output matches hand-computed fusion | 4 passed: fused order `[B,A,D,C]` + scores match `Σ 1/(60+rank)` to float precision | ☑ |
 | C5 | Reranker improves ranking | `run_benchmark --k 5`: nDCG@5 rerank ≥ hybrid on 59-query labeled set | rerank nDCG@5 **0.977** ≥ hybrid 0.973 ≥ keyword 0.927 ≥ semantic 0.914; rerank MRR 0.975 ≥ hybrid 0.972 (at ~300× latency — README states this) | ☑ |
 | C6 | Rate limiter is atomic | `test_rate_limit.py` — N concurrent, never over-admits | 3 passed: 4× oversubscription of a fresh bucket admits ≤ cap+refill (no double-spend); HTTP 429 carries Retry-After | ☑ |
-| C7 | ETL survives failure | `test_cache_and_etl.py` + chaos drill B (kill worker mid-ingest) | **SPLIT / claim partly FALSE.** ☑ graceful parse failure → `status=failed`, error stored, **zero orphan chunks** (atomic commit, index consistent). ❌ **retry NOT wired** (`max_retries=2` set, no `self.retry()`/`autoretry_for`). ❌ **worker kill loses ALL prefetched tasks** (acks_late=False + prefetch): drill B lost 5/5 docs, none recovered → contradicts README "durable queuing". See Phase 1 report + proposed fix. | ⚠ PARTIAL |
+| C7 | ETL survives failure | `test_cache_and_etl.py` + chaos drill B (kill worker mid-ingest) | Fixed + verified this session. `docker compose exec -T api pytest -q` -> **53 passed**. Chaos drill B rerun: queued 5 docs, killed worker with `SIGKILL` after reservation -> `ready_queue=3 unacked=2`; after restart + Redis visibility timeout, poll ended `done=5 queue=0 unacked=0` (each doc 90 chunks). | ☑ |
 | C8 | Benchmark numbers reproduce | Re-run `run_benchmark --k 5 --repeats 1`, compare to README table | Quality metrics reproduce within ≤0.013 (semantic + rerank EXACT); small keyword/hybrid MRR/nDCG wobble = BM25 tie-break ordering. Latencies hardware-dependent (README disclaims). | ☑ |
 
 ---
@@ -28,7 +28,7 @@ Last updated: 2026-07-08 | Phase: 1 (verification complete; 1 behavior-fix await
 | # | Contract item | Status | Evidence |
 |---|---------------|--------|----------|
 | 1 | Stranger test ≤5 min | ⚠ PARTIAL | Onboarding **path** verified working from a fresh clone this session (see below). The **≤5-min wall-clock** was NOT verified cold — Docker layers were cached, so build finished in ~16s. A genuine cold machine downloads ~4.4GB (CPU torch + 2 models); that one-time build almost certainly exceeds 5 min. Needs either a cold-cache measurement or a README note. |
-| 2 | Claim table fully verified | ⚠ NEARLY | C0–C6, C8 verified ☑. C7 partly FALSE (retry/worker-durability) — blocks a full check until fixed or claim corrected. |
+| 2 | Claim table fully verified | ☑ | C0-C8 verified. C7 was false, then fixed this session and re-verified with tests + worker-kill chaos drill. |
 | 3 | Hostile-input suite: zero unhandled 500s | ☑ | `test_hostile_inputs.py` 21 passed (empty/10k/emoji/CJK/RTL/SQL/HTML/malformed-JSON/wrong-CT/0-byte/oversized/exe/corrupt) + chaos drills A/C — **zero 500s observed anywhere** this phase. |
 | 4 | Eval numbers committed + CI regression guard | ⚠ PARTIAL | Numbers reproduced + already committed in README (C8). CI regression guard = Phase 3. |
 | 5 | Live URL + monitoring screenshot | ☐ | Phase 4 (HUMAN-REQUIRED box creation) |
@@ -39,7 +39,7 @@ Last updated: 2026-07-08 | Phase: 1 (verification complete; 1 behavior-fix await
 ## Human TODO queue
 (Items only you can do.)
 - [x] (Phase 0) Approved README Limitations + cold-build note (proceed-no-comments). Committed `3467e8d`.
-- [ ] **(Phase 1) GO / NO-GO on the worker-durability fix** (behavior change — needs sign-off per directive 2). Options: (a) fix Celery config + task (acks_late=True, prefetch=1, reject_on_worker_lost, autoretry, defer raw-file cleanup to success, stuck-doc reaper), or (b) soften the README "durable queuing / retries" claim to match reality. Recommend (a).
+- [x] **(Phase 1) GO / NO-GO on the worker-durability fix**. User chose option A. Fixed Celery config + task durability and re-ran chaos drill B successfully.
 - [ ] (Phase 3) demo GIF shot list + human-tester protocol (prepared then).
 
 ---
@@ -49,7 +49,7 @@ Last updated: 2026-07-08 | Phase: 1 (verification complete; 1 behavior-fix await
 - `3467e8d` docs: Phase 0 — README Limitations + cold-build note; AUDIT.md; vendored plan.
 - `185deb8` test: Phase 1 correctness suite (RRF, hostile, rate-limit, cache, ETL, modes) — 36 new tests, all green.
 - (test-only self-correction) cache-key test initially asserted internal-whitespace collapse; corrected to real contract (strip+lower only). No production code changed.
-- (PENDING — needs GO) worker-durability fix — behavior change, not yet applied.
+- this commit (`fix: make ingestion durable across worker crashes`): `acks_late=True`, `prefetch=1`, `reject_on_worker_lost=True`, Redis `visibility_timeout=300`, declarative autoretry, idempotent chunk replacement, and staged-file cleanup only after success/final failure.
 
 ---
 
@@ -80,11 +80,11 @@ Stumbles found while following the README: **none** in the documented command pa
 
 ### Tests (all run inside the api container, stack from the real repo)
 ```
-pytest -q            -> 52 passed  (16 pre-existing + 36 added this phase)
+pytest -q            -> 53 passed  (16 pre-existing + 37 added/updated this phase)
   test_rrf_fusion.py            4  (C4 RRF hand-computed + rerank union)
   test_hostile_inputs.py       21  (Trust Contract #3 — zero 500s)
   test_rate_limit.py            3  (C6 atomicity + 429/Retry-After)
-  test_cache_and_etl.py         5  (C1 cache + C7 graceful-fail + retry-gap pin)
+  test_cache_and_etl.py         6  (C1 cache + C7 final-fail atomicity + retry/durability config)
   test_search_modes.py          3  (C2 keyword exact term, C3 semantic-beats-BM25)
 ```
 
@@ -115,11 +115,11 @@ concurrency cap. Keyword (no embedding) scales far better. **No errors, no corru
 ### Chaos drills (disposable local stack)
 ```
 A  kill Redis under load   -> /search stayed 200 (fail-open cache + limiter); recovered. ✅ no corruption
-B  kill worker mid-ingest  -> 5/5 docs LOST, none recovered on restart. Broker queue=0
-                              (all prefetched+acked), raw files still staged. Docs stuck
-                              non-terminal ('processing'/'pending' forever). ❌ contradicts
-                              README "durable queuing". State problem, NOT index corruption.
+B  kill worker mid-ingest  -> after fix: queued 5 docs; killed worker with SIGKILL after reservation;
+                              observed ready_queue=3 and unacked=2; after restart + Redis visibility
+                              timeout, all 5 reached done, queue=0, unacked=0. ☑ durable recovery
+                              claim now verified true for no-worker and worker-kill cases.
 C  restart Postgres        -> data survived (29 chunks), search recovered to 200. ✅ no corruption
 ```
-Secondary finding: staged upload files for tasks that never complete are never cleaned up
-(orphans accumulate in the uploads volume).
+Prior orphan files may exist from earlier failed drills. New ingestions keep staged files
+through retryable failures, then clean them up after success or final failure.
