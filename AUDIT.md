@@ -43,6 +43,7 @@ Last updated: 2026-07-08 | Phase: 3 (semantic-search repo polish in progress) | 
 - [ ] (Phase 3) approve Mermaid architecture diagram before README insertion (`docs/architecture.md` prepared).
 - [ ] (Phase 3) record demo GIF/video and link it from README (`docs/demo_gif_shot_list.md` prepared).
 - [ ] (Phase 3) run two human testers through the protocol and record outcomes.
+- [ ] (Phase 4) create a Hetzner/AWS server and provide IP/domain; deployment runbook prepared in `docs/deployment_runbook.md`.
 
 ---
 
@@ -53,6 +54,7 @@ Last updated: 2026-07-08 | Phase: 3 (semantic-search repo polish in progress) | 
 - (test-only self-correction) cache-key test initially asserted internal-whitespace collapse; corrected to real contract (strip+lower only). No production code changed.
 - this commit (`fix: make ingestion durable across worker crashes`): `acks_late=True`, `prefetch=1`, `reject_on_worker_lost=True`, Redis `visibility_timeout=300`, declarative autoretry, idempotent chunk replacement, and staged-file cleanup only after success/final failure.
 - this commit (`ci: add eval guard and repo polish workflow`): CI workflow, eval regression guard, `make eval/check-eval/load`, gitleaks evidence, README badge, and prepared human-required docs.
+- this commit (`docs: add deployment runbook`): server creation, Linux hardening, Docker deploy, Caddy HTTPS, CI/CD sketch, and monitoring plan.
 
 ---
 
