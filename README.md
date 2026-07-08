@@ -39,6 +39,7 @@ sentence-transformers · a React/Next.js frontend · Docker.
 - [The four search modes](#the-four-search-modes)
 - [Design decisions & tradeoffs](#design-decisions--tradeoffs)
 - [Design Q&A (anticipated interview questions)](#design-qa-anticipated-interview-questions)
+- [Limitations](#limitations)
 - [Scaling & future work](#scaling--future-work)
 - [Testing](#testing)
 - [Project structure](#project-structure)
@@ -121,6 +122,10 @@ containerization) of serving it.
 
 Requires Docker. The app image bakes the models in at build time, so it runs fully
 offline afterwards.
+
+> ⏱️ **First build downloads ~4.4 GB** (CPU PyTorch + the `bge-small` and `bge-reranker`
+> models) and can take several minutes on a cold machine. Because the models are baked
+> into the image, every start afterward is seconds and fully offline.
 
 ```bash
 # 1. Build (downloads CPU torch + the embedding/reranker models) and start everything
@@ -384,6 +389,28 @@ it needs a GPU or a smaller candidate pool. And chunk size is tuned on one small
 I'd re-sweep it per dataset rather than assume 400 is universal.
 
 ---
+
+## Limitations
+
+Honest boundaries of this project as it stands — stated up front because knowing them is
+part of the design:
+
+- **Small evaluation corpus.** Metrics are computed on 22 documents / 59 labeled queries.
+  They validate *relative* mode behavior and catch regressions; they are **not** a claim
+  about large-corpus quality.
+- **Reranker is impractical on CPU** (~11 s/query — a full cross-encoder pass per
+  candidate). It ships to demonstrate retrieve-then-rerank; it needs a GPU or a smaller
+  candidate pool for real use.
+- **BM25 has no stopword/stemming filter yet**, so a spurious common-word match can mislead
+  the hybrid fusion. Fixable via the ParadeDB tokenizer config.
+- **Chunk size (400 tokens) is tuned on this one corpus** — re-sweep per dataset rather than
+  assuming it transfers.
+- **Single-tenant demo:** no authentication or per-user document scoping; anyone with API
+  access sees all documents.
+- **Rate limiter fails open:** during a Redis outage, limiting is disabled (availability
+  chosen over strict enforcement).
+- **Benchmark latencies are CPU/hardware-dependent** (measured in Docker, no GPU); the
+  *ordering* across modes is the portable finding, not the absolute milliseconds.
 
 ## Scaling & future work
 
