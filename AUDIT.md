@@ -1,6 +1,6 @@
 # Audit Status — semantic-search-api
 
-Last updated: 2026-07-08 | Phase: 0 (complete, pending your quiz + README sign-off) | Overall Trust Contract: 0/6 fully checked
+Last updated: 2026-07-08 | Phase: 1 (verification complete; 1 behavior-fix awaiting GO) | Overall Trust Contract: 1/6 fully checked (#3), 3 partial (#1,#2,#4)
 
 > Single source of truth for this audit. On a new session, read this file first and resume from the recorded phase.
 > Evidence rule: a box is ☑ **only** when a command was run **this session** and its output is quoted here.
@@ -12,15 +12,15 @@ Last updated: 2026-07-08 | Phase: 0 (complete, pending your quiz + README sign-o
 
 | # | Claim | Verification method | Evidence (cmd + result) | Status |
 |---|-------|---------------------|-------------------------|--------|
-| C0 | Documented onboarding path works from a fresh clone | Fresh `git clone` → `docker compose up -d --build` → `ingest_corpus --reset` → documented curl | See Phase 0 evidence below — all steps succeeded, sample query returned the correct HNSW/ANN passage at rank 1 | ☑ |
-| C1 | Cache actually caches | Repeat identical query, assert `cached=true` + latency drop | Same query twice: `cached=False latency=1929.72ms` → `cached=True latency=0.35ms` | ☑ (smoke; formal test in Phase 1.3) |
-| C2 | BM25 (keyword) mode works | Phase 1 test: known corpus/query, expected doc in top-k | pending | ☐ |
-| C3 | Vector (semantic) mode works | Phase 1 test: paraphrase query finds doc BM25 misses | pending | ☐ |
-| C4 | Hybrid RRF works | Phase 1 test: RRF output matches hand-computed fusion | pending | ☐ |
-| C5 | Reranker improves ranking | Phase 1 eval: nDCG@k rerank ≥ hybrid on labeled set | pending | ☐ |
-| C6 | Rate limiter is atomic | Phase 1 test: N concurrent requests, exactly C pass | pending | ☐ |
-| C7 | ETL survives failure | Phase 1 test: kill worker mid-task → retry → index consistent | pending | ☐ |
-| C8 | Benchmark numbers reproduce | Phase 1: re-run `run_benchmark`, compare to README table | pending | ☐ |
+| C0 | Documented onboarding path works from a fresh clone | Fresh `git clone` → `docker compose up -d --build` → `ingest_corpus --reset` → documented curl | Phase 0: all steps succeeded, sample query returned the correct HNSW/ANN passage at rank 1 | ☑ |
+| C1 | Cache actually caches | `test_cache_and_etl.py` — set/get roundtrip + TTL + HTTP cached-flag | `pytest test_cache_and_etl.py` 5 passed: cold miss→set→hit; TTL 0<ttl≤300; HTTP `cached False→True`, latency drops | ☑ |
+| C2 | BM25 (keyword) mode works | `test_search_modes.py::test_c2` — exact rare term in top-1 | 3 passed: keyword `ef_search` → top-1 content contains `ef_search` | ☑ |
+| C3 | Vector (semantic) mode works | `test_search_modes.py::test_c3` — paraphrase finds a chunk BM25 misses | 3 passed: "how many people can edit data at the same time safely" → semantic surfaces ACID/transactions chunk; keyword top-3 does NOT | ☑ |
+| C4 | Hybrid RRF works | `test_rrf_fusion.py` — output matches hand-computed fusion | 4 passed: fused order `[B,A,D,C]` + scores match `Σ 1/(60+rank)` to float precision | ☑ |
+| C5 | Reranker improves ranking | `run_benchmark --k 5`: nDCG@5 rerank ≥ hybrid on 59-query labeled set | rerank nDCG@5 **0.977** ≥ hybrid 0.973 ≥ keyword 0.927 ≥ semantic 0.914; rerank MRR 0.975 ≥ hybrid 0.972 (at ~300× latency — README states this) | ☑ |
+| C6 | Rate limiter is atomic | `test_rate_limit.py` — N concurrent, never over-admits | 3 passed: 4× oversubscription of a fresh bucket admits ≤ cap+refill (no double-spend); HTTP 429 carries Retry-After | ☑ |
+| C7 | ETL survives failure | `test_cache_and_etl.py` + chaos drill B (kill worker mid-ingest) | **SPLIT / claim partly FALSE.** ☑ graceful parse failure → `status=failed`, error stored, **zero orphan chunks** (atomic commit, index consistent). ❌ **retry NOT wired** (`max_retries=2` set, no `self.retry()`/`autoretry_for`). ❌ **worker kill loses ALL prefetched tasks** (acks_late=False + prefetch): drill B lost 5/5 docs, none recovered → contradicts README "durable queuing". See Phase 1 report + proposed fix. | ⚠ PARTIAL |
+| C8 | Benchmark numbers reproduce | Re-run `run_benchmark --k 5 --repeats 1`, compare to README table | Quality metrics reproduce within ≤0.013 (semantic + rerank EXACT); small keyword/hybrid MRR/nDCG wobble = BM25 tie-break ordering. Latencies hardware-dependent (README disclaims). | ☑ |
 
 ---
 
@@ -28,24 +28,28 @@ Last updated: 2026-07-08 | Phase: 0 (complete, pending your quiz + README sign-o
 | # | Contract item | Status | Evidence |
 |---|---------------|--------|----------|
 | 1 | Stranger test ≤5 min | ⚠ PARTIAL | Onboarding **path** verified working from a fresh clone this session (see below). The **≤5-min wall-clock** was NOT verified cold — Docker layers were cached, so build finished in ~16s. A genuine cold machine downloads ~4.4GB (CPU torch + 2 models); that one-time build almost certainly exceeds 5 min. Needs either a cold-cache measurement or a README note. |
-| 2 | Claim table fully verified | ☐ | Phase 1 |
-| 3 | Hostile-input suite: zero unhandled 500s | ☐ | Phase 1.3 |
-| 4 | Eval numbers committed + CI regression guard | ☐ | Phase 1.2 / Phase 3 |
+| 2 | Claim table fully verified | ⚠ NEARLY | C0–C6, C8 verified ☑. C7 partly FALSE (retry/worker-durability) — blocks a full check until fixed or claim corrected. |
+| 3 | Hostile-input suite: zero unhandled 500s | ☑ | `test_hostile_inputs.py` 21 passed (empty/10k/emoji/CJK/RTL/SQL/HTML/malformed-JSON/wrong-CT/0-byte/oversized/exe/corrupt) + chaos drills A/C — **zero 500s observed anywhere** this phase. |
+| 4 | Eval numbers committed + CI regression guard | ⚠ PARTIAL | Numbers reproduced + already committed in README (C8). CI regression guard = Phase 3. |
 | 5 | Live URL + monitoring screenshot | ☐ | Phase 4 (HUMAN-REQUIRED box creation) |
 | 6 | Two human testers passed core flows | ☐ | HUMAN-REQUIRED |
 
 ---
 
 ## Human TODO queue
-(Items only you can do. None actionable yet — populated in Phase 3/4.)
-- [ ] (Phase 0, optional) Decide: measure a true cold build time, OR approve a README note that first build downloads ~4.4GB and takes N minutes.
-- [ ] (Phase 0) Approve the honest "Limitations" section wording before it goes in the README (your judgment to sign off).
+(Items only you can do.)
+- [x] (Phase 0) Approved README Limitations + cold-build note (proceed-no-comments). Committed `3467e8d`.
+- [ ] **(Phase 1) GO / NO-GO on the worker-durability fix** (behavior change — needs sign-off per directive 2). Options: (a) fix Celery config + task (acks_late=True, prefetch=1, reject_on_worker_lost, autoretry, defer raw-file cleanup to success, stuck-doc reaper), or (b) soften the README "durable queuing / retries" claim to match reality. Recommend (a).
+- [ ] (Phase 3) demo GIF shot list + human-tester protocol (prepared then).
 
 ---
 
 ## Fix log
-(Every change: what, why, commit hash. Nothing committed yet — awaiting your Phase 0 sign-off.)
-- (pending) `docs:` add honest Limitations section + cold-build note to README — awaiting your approval of wording.
+(Every change: what, why, commit hash.)
+- `3467e8d` docs: Phase 0 — README Limitations + cold-build note; AUDIT.md; vendored plan.
+- `185deb8` test: Phase 1 correctness suite (RRF, hostile, rate-limit, cache, ETL, modes) — 36 new tests, all green.
+- (test-only self-correction) cache-key test initially asserted internal-whitespace collapse; corrected to real contract (strip+lower only). No production code changed.
+- (PENDING — needs GO) worker-durability fix — behavior change, not yet applied.
 
 ---
 
@@ -69,3 +73,53 @@ Faithful test: cloned the repo into a fresh temp dir with no inherited files/env
 ```
 
 Stumbles found while following the README: **none** in the documented command path. The quickstart correctly omits `.env` (compose injects env inline via a YAML anchor; `.env.example` is only for running outside Docker).
+
+---
+
+## Phase 1 — evidence (correctness audit)
+
+### Tests (all run inside the api container, stack from the real repo)
+```
+pytest -q            -> 52 passed  (16 pre-existing + 36 added this phase)
+  test_rrf_fusion.py            4  (C4 RRF hand-computed + rerank union)
+  test_hostile_inputs.py       21  (Trust Contract #3 — zero 500s)
+  test_rate_limit.py            3  (C6 atomicity + 429/Retry-After)
+  test_cache_and_etl.py         5  (C1 cache + C7 graceful-fail + retry-gap pin)
+  test_search_modes.py          3  (C2 keyword exact term, C3 semantic-beats-BM25)
+```
+
+### Benchmark reproduction (`run_benchmark --k 5 --repeats 1`, 59 queries)
+```
+Mode      P@5    Recall@5  MRR     nDCG@5   | README nDCG@5 / MRR
+keyword   0.203  0.958     0.918   0.927    | 0.936 / 0.931   (Δ≤0.013, BM25 tie-break)
+semantic  0.207  0.966     0.898   0.914    | 0.914 / 0.898   (EXACT)
+hybrid    0.210  0.992     0.972   0.973    | 0.968 / 0.967   (Δ≤0.006)
+rerank    0.210  0.983     0.975   0.977    | 0.977 / 0.975   (EXACT)
+```
+C8 ✅ quality reproduces within noise. C5 ✅ rerank ≥ hybrid ≥ others on nDCG/MRR.
+
+### Load test (`scripts/loadtest.py`, cache-busting, limiter disabled on an ephemeral :8001)
+```
+mode      concurrency   throughput   p50      p95       notes
+keyword   20            127.7 req/s  133 ms   202 ms    all 200; DB-pool queueing at c=20
+semantic  4             244.3 req/s  12.7 ms  22.8 ms   representative
+semantic  20            7.1 req/s    1506 ms  15430 ms  all 200 — torch intra-op thread
+                                                        oversubscription (16 cores × 20 reqs)
+hybrid    4             255.9 req/s  12.1 ms  14.7 ms   representative
+hybrid    20            12.7 req/s   1555 ms  1675 ms   all 200
+```
+Finding (not a bug, a saturation point): embedding modes are CPU-bound; at high concurrency
+torch's multi-threaded inference oversubscribes cores. Lever: set torch thread limits / a
+concurrency cap. Keyword (no embedding) scales far better. **No errors, no corruption.**
+
+### Chaos drills (disposable local stack)
+```
+A  kill Redis under load   -> /search stayed 200 (fail-open cache + limiter); recovered. ✅ no corruption
+B  kill worker mid-ingest  -> 5/5 docs LOST, none recovered on restart. Broker queue=0
+                              (all prefetched+acked), raw files still staged. Docs stuck
+                              non-terminal ('processing'/'pending' forever). ❌ contradicts
+                              README "durable queuing". State problem, NOT index corruption.
+C  restart Postgres        -> data survived (29 chunks), search recovered to 200. ✅ no corruption
+```
+Secondary finding: staged upload files for tasks that never complete are never cleaned up
+(orphans accumulate in the uploads volume).
