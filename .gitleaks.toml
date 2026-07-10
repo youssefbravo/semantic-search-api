@@ -1,0 +1,8 @@
+[allowlist]
+description = "Known false positive: local Grafana demo credentials in historical audit evidence, not a production secret."
+paths = [
+  '''AUDIT\.md''',
+]
+regexes = [
+  '''admin:admin''',
+]

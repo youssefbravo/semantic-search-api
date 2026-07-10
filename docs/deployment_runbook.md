@@ -136,6 +136,7 @@ Implemented locally:
 - Prometheus runs on `:9090` and scrapes `api:8000/metrics`.
 - Grafana runs on `:3001` with default local credentials `admin` / `admin`.
 - Grafana provisions the `Semantic Search API` dashboard automatically.
+- Celery ready/unacked queue depth is exported as Prometheus gauges.
 
 Start monitoring locally with:
 
@@ -147,7 +148,6 @@ Production TODOs:
 
 - Change the Grafana admin password before exposing it.
 - Put Grafana behind Caddy/auth or keep it private over SSH tunnel/VPN.
-- Add Celery queue-depth metrics (`LLEN celery`) for queue visibility.
 - Capture a dashboard screenshot for the README after deployment.
 
 ## 10. Public Guardrails

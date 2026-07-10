@@ -193,7 +193,7 @@ curl http://localhost:8000/health
 -> {"status":"ok","checks":{"postgres":true,"redis":true}}
 
 curl http://localhost:8000/metrics
--> exposes process metrics and http_requests_total
+-> exposes process metrics, http_requests_total, celery_queue_depth, celery_unacked_tasks
 
 docker compose exec -T api pytest -q
 -> 55 passed
@@ -207,7 +207,7 @@ docker compose exec -T api mypy --ignore-missing-imports --follow-imports=skip .
 curl http://localhost:9090/api/v1/targets
 -> Prometheus target semantic-search-api health="up"
 
-curl -u admin:admin http://localhost:3001/api/search?query=Semantic
+curl -u '<local-grafana-user>:<local-grafana-password>' http://localhost:3001/api/search?query=Semantic
 -> Semantic Search API dashboard found
 ```
 
@@ -227,6 +227,13 @@ docker compose --env-file deploy/.env.prod.example \
   --profile monitoring \
   config --quiet
 -> OK
+
+docker compose exec -T api pytest -q
+-> 55 passed
+
+docker run --rm -v "${repo}:/repo" ghcr.io/gitleaks/gitleaks:latest \
+  detect --source=/repo --config=/repo/.gitleaks.toml --redact --no-banner --verbose
+-> 11 commits scanned; no leaks found
 ```
 
 Added production deployment templates:
@@ -235,4 +242,10 @@ Added production deployment templates:
 - `deploy/.env.prod.example` documents required production domains/secrets.
 - `deploy/bootstrap_ubuntu.sh` bootstraps a fresh Ubuntu server with a deploy user, firewall, fail2ban, Git, and Docker.
 
-Base compose now binds host ports to `127.0.0.1` so Postgres/Redis/API/frontend/monitoring are not accidentally public on a cloud box; Caddy is the intended public entrypoint.
+Base compose now keeps Postgres/Redis internal-only and binds API/frontend/monitoring
+host ports to `127.0.0.1`; Caddy is the intended public entrypoint.
+
+Secrets note: gitleaks flagged a historical `curl -u admin:admin` command in `AUDIT.md`
+as `curl-auth-user`. That was the documented local Grafana default credential, not a
+production secret. Current audit text is redacted, and `.gitleaks.toml` allowlists only
+that AUDIT.md `admin:admin` false-positive pattern.

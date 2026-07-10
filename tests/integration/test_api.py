@@ -45,6 +45,7 @@ def test_metrics_endpoint_is_exposed(client):
     r = client.get("/metrics")
     assert r.status_code == 200
     assert "http_requests_total" in r.text
+    assert "celery_queue_depth" in r.text
 
 
 def test_upload_returns_202_without_worker(client, monkeypatch):

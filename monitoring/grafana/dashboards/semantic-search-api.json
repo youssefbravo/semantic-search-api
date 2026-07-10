@@ -156,6 +156,47 @@
       ],
       "title": "In-flight Requests",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "celery_queue_depth",
+          "legendFormat": "ready queue",
+          "refId": "A"
+        },
+        {
+          "expr": "celery_unacked_tasks",
+          "legendFormat": "unacked",
+          "refId": "B"
+        }
+      ],
+      "title": "Celery Queue Depth",
+      "type": "timeseries"
     }
   ],
   "refresh": "10s",

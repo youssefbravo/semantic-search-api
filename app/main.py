@@ -36,7 +36,19 @@ app.include_router(search.router)
 
 if settings.metrics_enabled:
     try:
+        import redis
         from prometheus_fastapi_instrumentator import Instrumentator
+        from prometheus_client import Gauge
+
+        broker = redis.Redis.from_url(settings.celery_broker_url)
+        Gauge(
+            "celery_queue_depth",
+            "Number of ready Celery tasks waiting in the Redis broker queue.",
+        ).set_function(lambda: broker.llen("celery"))
+        Gauge(
+            "celery_unacked_tasks",
+            "Number of Celery tasks reserved by workers but not yet acknowledged.",
+        ).set_function(lambda: broker.hlen("unacked"))
 
         Instrumentator().instrument(app).expose(app, endpoint="/metrics", tags=["meta"])
     except ImportError:
