@@ -25,7 +25,7 @@ Thumbs.db
 
 # Local audit overrides and frontend dependencies
 compose.audit.yml
-baseline-tests.xml
+/baseline-tests.xml
 frontend/node_modules/
 frontend/.next/
 .mypy_cache/
