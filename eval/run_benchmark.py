@@ -4,7 +4,7 @@ Prereqs: stack running + corpus ingested (python -m eval.ingest_corpus --reset).
 
     python -m eval.run_benchmark --k 10 --repeats 3
 
-Outputs (to eval/results/):
+Outputs (to a new timestamped eval/results/ directory, or --output-dir):
   benchmark.json   raw metrics
   benchmark.md     markdown table for the README
   benchmark_quality.png / benchmark_latency.png   charts (if matplotlib present)
@@ -141,7 +141,8 @@ def run(k: int, repeats: int) -> None:
         "precision_denominator": "fixed k (missing returned positions score zero)",
     }
     with SessionLocal() as session:
-        metadata["n_documents"] = len(session.execute(select(Document.id)).all())
+        metadata["n_document_rows"] = len(session.execute(select(Document.id)).all())
+        metadata["n_indexed_documents"] = len(session.execute(select(Chunk.document_id).distinct()).all())
         metadata["n_chunks"] = len(session.execute(select(Chunk.id)).all())
     _write_outputs(results, k, len(queries), repeats, metadata)
 

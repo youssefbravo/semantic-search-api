@@ -13,7 +13,7 @@ def _load(path: Path) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--baseline", default="eval/baseline/benchmark.json")
-    parser.add_argument("--current", default="eval/results/benchmark.json")
+    parser.add_argument("--current", required=True, help="Explicit current run; prevents checking a stale result")
     parser.add_argument("--max-drop", type=float, default=0.05)
     args = parser.parse_args()
 

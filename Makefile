@@ -21,14 +21,15 @@ ps:           ## Show service status
 ingest:       ## Ingest the evaluation corpus (resets existing docs)
 	docker compose exec api python -m eval.ingest_corpus --reset
 
-benchmark:    ## Run the 4-mode benchmark -> eval/results/benchmark.{json,md,png}
-	docker compose exec api python -m eval.run_benchmark --k 10 --repeats 3
+benchmark:    ## Run the 4-mode benchmark -> a new timestamped eval/results directory
+	docker compose exec api python -m eval.run_benchmark --k 5 --repeats 3
 
-eval:         ## Run the README benchmark settings -> eval/results/benchmark.{json,md,png}
+eval:         ## Run a one-repeat evaluation -> a new timestamped result directory
 	docker compose exec api python -m eval.run_benchmark --k 5 --repeats 1
 
 check-eval:   ## Fail if nDCG drops >5% vs eval/baseline/benchmark.json
-	docker compose exec api python -m eval.check_regression --max-drop 0.05
+	$(if $(CURRENT),,$(error Supply CURRENT=eval/results/<run>/benchmark.json))
+	docker compose exec api python -m eval.check_regression --max-drop 0.05 --current "$(CURRENT)"
 
 sweep:        ## Run the chunk-size sweep -> eval/results/chunk_sweep.{json,png}
 	docker compose exec api python -m eval.chunk_sweep --sizes 200 400 500
@@ -37,7 +38,7 @@ load:         ## Run a small cache-busting load smoke test against localhost:800
 	python scripts/loadtest.py --mode hybrid --n 20 --concurrency 2 --unique
 
 test:         ## Run the test suite inside the api container
-	docker compose exec api pytest
+	docker compose exec api pytest --strict-integration -ra
 
 shell:        ## Open a shell in the api container
 	docker compose exec api bash
