@@ -1,0 +1,58 @@
+/usr/local/lib/python3.12/site-packages/celery/platforms.py:829: SecurityWarning: You're running the worker with superuser privileges: this is
+ 
+absolutely not recommended!
+
+Please specify a different user using the --uid option.
+
+User information: uid=0 euid=0 gid=0 egid=0
+
+  warnings.warn(SecurityWarning(ROOT_DISCOURAGED.format(
+[2026-10-14 17:33:57,890: WARNING/MainProcess] /usr/local/lib/python3.12/site-packages/celery/worker/consumer/consumer.py:508: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
+whether broker connection retries are made during startup in Celery 6.0 and above.
+ -------------- celery@1459bc52eddc v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-10-14 17:33:57
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         semantic_search:0x76c9a7949610
+- ** ---------- .> transport:   redis://semantic-finalise-drill-redis:6379/1
+- ** ---------- .> results:     redis://semantic-finalise-drill-redis:6379/2
+- *** --- * --- .> concurrency: 1 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+If you wish to retain the existing behavior for retrying connections on startup,
+you should set broker_connection_retry_on_startup to True.
+  warnings.warn(
+
+[2026-10-14 17:33:57,902: INFO/MainProcess] Connected to redis://semantic-finalise-drill-redis:6379/1
+[2026-10-14 17:33:57,905: WARNING/MainProcess] /usr/local/lib/python3.12/site-packages/celery/worker/consumer/consumer.py:508: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
+whether broker connection retries are made during startup in Celery 6.0 and above.
+If you wish to retain the existing behavior for retrying connections on startup,
+you should set broker_connection_retry_on_startup to True.
+  warnings.warn(
+
+[2026-10-14 17:33:57,915: INFO/MainProcess] mingle: searching for neighbors
+[2026-10-14 17:33:58,931: INFO/MainProcess] mingle: all alone
+[2026-10-14 17:33:58,950: INFO/MainProcess] celery@1459bc52eddc ready.
+[2026-10-14 17:34:52,545: INFO/MainProcess] Task ingest_document[19f6b80a-80f1-419d-a3a3-9fed1d2c05f0] received
+[2026-10-14 17:34:52,686: ERROR/ForkPoolWorker-1] Ingestion failed for f43db578-475d-40a5-ba6d-07642474a62f
+Traceback (most recent call last):
+  File "/app/app/tasks.py", line 71, in ingest_document
+    vectors = embed_passages([c.content for c in chunks])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/tests/worker_fault_harness.py", line 15, in fail_once
+    raise ConnectionError('Injected transient embedding failure for verification')
+ConnectionError: Injected transient embedding failure for verification
+[2026-10-14 17:34:52,715: INFO/ForkPoolWorker-1] Task ingest_document[19f6b80a-80f1-419d-a3a3-9fed1d2c05f0] retry: Retry in 1s: ConnectionError('Injected transient embedding failure for verification')
+[2026-10-14 17:34:52,721: INFO/MainProcess] Task ingest_document[19f6b80a-80f1-419d-a3a3-9fed1d2c05f0] received
+[2026-10-14 17:34:53,740: INFO/ForkPoolWorker-1] Use pytorch device_name: cpu
+[2026-10-14 17:34:53,741: INFO/ForkPoolWorker-1] Load pretrained SentenceTransformer: BAAI/bge-small-en-v1.5
+[2026-10-14 17:34:56,097: INFO/ForkPoolWorker-1] Ingested f43db578-475d-40a5-ba6d-07642474a62f: 1 chunks
+[2026-10-14 17:34:56,102: INFO/ForkPoolWorker-1] Task ingest_document[19f6b80a-80f1-419d-a3a3-9fed1d2c05f0] succeeded in 2.403592585993465s: None
+ -------------- [queues]
+                .> celery           exchange=celery(direct) key=celery
+                
+
+[tasks]
+  . ingest_document
+

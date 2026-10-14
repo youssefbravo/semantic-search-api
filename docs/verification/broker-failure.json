@@ -1,0 +1,17 @@
+{
+  "id": "d3224230-ebeb-4d47-9065-30ce3cb2fe59",
+  "http_status": 503,
+  "document_status": "failed",
+  "staging_retained_for_ambiguous_delivery": true,
+  "real_broker_outage": true,
+  "after_operator_requeue": {
+    "id": "d3224230-ebeb-4d47-9065-30ce3cb2fe59",
+    "filename": "broker-failure-4b0dc33a63be4272b55ea3696428bde1.txt",
+    "content_type": "text/plain",
+    "status": "done",
+    "num_chunks": 1,
+    "error": null,
+    "created_at": "2026-10-14T17:47:24.929139Z",
+    "updated_at": "2026-10-14T17:47:42.970768Z"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "k": 5,
+  "n_queries": 6,
+  "repeats": 1,
+  "modes": {
+    "keyword": {
+      "precision_at_5": 0.2,
+      "recall_at_5": 1.0,
+      "mrr": 0.8889,
+      "ndcg_at_5": 0.9167,
+      "latency_p50_ms": 8.34,
+      "latency_p95_ms": 15.88
+    },
+    "semantic": {
+      "precision_at_5": 0.2,
+      "recall_at_5": 1.0,
+      "mrr": 0.75,
+      "ndcg_at_5": 0.8155,
+      "latency_p50_ms": 19.95,
+      "latency_p95_ms": 33.81
+    },
+    "hybrid": {
+      "precision_at_5": 0.2,
+      "recall_at_5": 1.0,
+      "mrr": 0.9167,
+      "ndcg_at_5": 0.9385,
+      "latency_p50_ms": 28.03,
+      "latency_p95_ms": 33.1
+    },
+    "rerank": {
+      "precision_at_5": 0.2,
+      "recall_at_5": 1.0,
+      "mrr": 0.8889,
+      "ndcg_at_5": 0.9167,
+      "latency_p50_ms": 14460.32,
+      "latency_p95_ms": 14900.38
+    }
+  },
+  "metadata": {
+    "created_at_utc": "2026-10-14T17:53:55.804054+00:00",
+    "embedding_model": "BAAI/bge-small-en-v1.5",
+    "embedding_revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+    "reranker_model": "BAAI/bge-reranker-base",
+    "reranker_revision": "2cfc18c9415c912f9d8155881c133215df768a70",
+    "configuration": {
+      "chunk_max_tokens": 400,
+      "chunk_overlap_tokens": 60,
+      "hybrid_pool": 50,
+      "rerank_pool": 30,
+      "rrf_k": 60
+    },
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.41",
+    "machine": "x86_64",
+    "cpu": "AMD Ryzen 7 5800H with Radeon Graphics",
+    "torch_threads": 4,
+    "packages": {
+      "torch": "2.5.1+cpu",
+      "transformers": "4.47.1",
+      "sentence-transformers": "3.3.1",
+      "SQLAlchemy": "2.0.36"
+    },
+    "first_request_including_model_load_ms": 17793.78,
+    "latency_scope": "warmed direct retrieval; excludes HTTP, Redis cache, network and UI",
+    "label_method": "binary marker containment; authored corpus; not independent human judgments",
+    "queries_sha256": "0f2e5f09e1d8d3d150a0b204982939bade4a0ebf445b8d34e2b2b60a0a286000",
+    "corpus_sha256": "afb130a8842722635a2a49e98feed70275e2fbb0749a28c33fb36291500ff37d",
+    "precision_denominator": "fixed k (missing returned positions score zero)",
+    "n_documents": 30,
+    "n_chunks": 29
+  }
+}

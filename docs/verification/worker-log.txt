@@ -1,0 +1,180 @@
+[tasks]
+[2026-10-14 17:31:51,801: WARNING/MainProcess] /usr/local/lib/python3.12/site-packages/celery/worker/consumer/consumer.py:508: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
+  . ingest_document
+
+whether broker connection retries are made during startup in Celery 6.0 and above.
+If you wish to retain the existing behavior for retrying connections on startup,
+you should set broker_connection_retry_on_startup to True.
+  warnings.warn(
+
+[2026-10-14 17:31:51,822: INFO/MainProcess] Connected to redis://semantic-finalise-drill-redis:6379/1
+[2026-10-14 17:31:51,826: WARNING/MainProcess] /usr/local/lib/python3.12/site-packages/celery/worker/consumer/consumer.py:508: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
+whether broker connection retries are made during startup in Celery 6.0 and above.
+If you wish to retain the existing behavior for retrying connections on startup,
+you should set broker_connection_retry_on_startup to True.
+  warnings.warn(
+
+[2026-10-14 17:31:51,835: INFO/MainProcess] mingle: searching for neighbors
+[2026-10-14 17:31:52,853: INFO/MainProcess] mingle: all alone
+[2026-10-14 17:31:52,872: INFO/MainProcess] celery@6b3829ecd8e5 ready.
+[2026-10-14 17:32:39,176: INFO/MainProcess] Task ingest_document[08864c09-69f3-4366-96ea-e0205af16365] received
+[2026-10-14 17:32:39,258: INFO/MainProcess] Task ingest_document[029d9adb-95af-4004-a16b-5d783658138f] received
+[2026-10-14 17:32:39,329: INFO/ForkPoolWorker-2] Use pytorch device_name: cpu
+[2026-10-14 17:32:39,330: INFO/ForkPoolWorker-2] Load pretrained SentenceTransformer: BAAI/bge-small-en-v1.5
+[2026-10-14 17:32:40,458: INFO/ForkPoolWorker-2] Ingested 6e753d29-3789-486b-b659-09f9cc0fd492: 1 chunks
+[2026-10-14 17:32:40,465: INFO/ForkPoolWorker-2] Task ingest_document[08864c09-69f3-4366-96ea-e0205af16365] succeeded in 1.2849229980056407s: None
+[2026-10-14 17:32:40,503: INFO/ForkPoolWorker-1] Document 6e753d29-3789-486b-b659-09f9cc0fd492 already ingested; skipping duplicate delivery
+[2026-10-14 17:32:40,513: INFO/ForkPoolWorker-1] Task ingest_document[029d9adb-95af-4004-a16b-5d783658138f] succeeded in 1.24892696000461s: None
+[2026-10-14 17:32:40,789: INFO/MainProcess] Task ingest_document[ed041b0e-1da6-48be-bf31-dee380c0459c] received
+[2026-10-14 17:32:40,795: INFO/ForkPoolWorker-2] Document 6e753d29-3789-486b-b659-09f9cc0fd492 already ingested; skipping duplicate delivery
+[2026-10-14 17:32:40,799: INFO/ForkPoolWorker-2] Task ingest_document[ed041b0e-1da6-48be-bf31-dee380c0459c] succeeded in 0.008741350000491366s: None
+[2026-10-14 17:32:40,870: INFO/MainProcess] Task ingest_document[75599418-e245-414b-acb0-0b2e9c943bd7] received
+[2026-10-14 17:32:40,879: WARNING/ForkPoolWorker-2] invalid pdf header: b'not a'
+[2026-10-14 17:32:40,879: WARNING/ForkPoolWorker-2] EOF marker not found
+[2026-10-14 17:32:40,879: ERROR/ForkPoolWorker-2] Ingestion failed for 44c172af-784f-4b9d-b6dd-bdcaf59dba20
+Traceback (most recent call last):
+  File "/app/app/tasks.py", line 60, in ingest_document
+    text = extract_text(data, doc.content_type, doc.filename)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/app/parsing.py", line 15, in extract_text
+    reader = PdfReader(io.BytesIO(data))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 133, in __init__
+    self._initialize_stream(stream)
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 155, in _initialize_stream
+    self.read(stream)
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 608, in read
+    self._find_eof_marker(stream)
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 716, in _find_eof_marker
+    line = read_previous_line(stream)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_utils.py", line 288, in read_previous_line
+    raise PdfStreamError(STREAM_TRUNCATED_PREMATURELY)
+pypdf.errors.PdfStreamError: Stream has ended unexpectedly
+[2026-10-14 17:32:40,904: INFO/MainProcess] Task ingest_document[75599418-e245-414b-acb0-0b2e9c943bd7] received
+[2026-10-14 17:32:40,912: INFO/ForkPoolWorker-2] Task ingest_document[75599418-e245-414b-acb0-0b2e9c943bd7] retry: Retry in 0s: PdfStreamError('Stream has ended unexpectedly')
+[2026-10-14 17:32:40,916: WARNING/ForkPoolWorker-1] invalid pdf header: b'not a'
+[2026-10-14 17:32:40,916: WARNING/ForkPoolWorker-1] EOF marker not found
+[2026-10-14 17:32:40,916: ERROR/ForkPoolWorker-1] Ingestion failed for 44c172af-784f-4b9d-b6dd-bdcaf59dba20
+Traceback (most recent call last):
+  File "/app/app/tasks.py", line 60, in ingest_document
+    text = extract_text(data, doc.content_type, doc.filename)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/app/parsing.py", line 15, in extract_text
+    reader = PdfReader(io.BytesIO(data))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 133, in __init__
+    self._initialize_stream(stream)
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 155, in _initialize_stream
+    self.read(stream)
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 608, in read
+    self._find_eof_marker(stream)
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 716, in _find_eof_marker
+    line = read_previous_line(stream)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_utils.py", line 288, in read_previous_line
+    raise PdfStreamError(STREAM_TRUNCATED_PREMATURELY)
+pypdf.errors.PdfStreamError: Stream has ended unexpectedly
+[2026-10-14 17:32:40,961: INFO/MainProcess] Task ingest_document[75599418-e245-414b-acb0-0b2e9c943bd7] received
+[2026-10-14 17:32:40,968: WARNING/ForkPoolWorker-2] invalid pdf header: b'not a'
+[2026-10-14 17:32:40,968: WARNING/ForkPoolWorker-2] EOF marker not found
+[2026-10-14 17:32:40,970: INFO/ForkPoolWorker-1] Task ingest_document[75599418-e245-414b-acb0-0b2e9c943bd7] retry: Retry in 0s: PdfStreamError('Stream has ended unexpectedly')
+[2026-10-14 17:32:40,975: ERROR/ForkPoolWorker-2] Ingestion failed for 44c172af-784f-4b9d-b6dd-bdcaf59dba20
+Traceback (most recent call last):
+  File "/app/app/tasks.py", line 60, in ingest_document
+    text = extract_text(data, doc.content_type, doc.filename)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/app/parsing.py", line 15, in extract_text
+    reader = PdfReader(io.BytesIO(data))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 133, in __init__
+    self._initialize_stream(stream)
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 155, in _initialize_stream
+    self.read(stream)
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 608, in read
+    self._find_eof_marker(stream)
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 716, in _find_eof_marker
+    line = read_previous_line(stream)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_utils.py", line 288, in read_previous_line
+    raise PdfStreamError(STREAM_TRUNCATED_PREMATURELY)
+pypdf.errors.PdfStreamError: Stream has ended unexpectedly
+[2026-10-14 17:32:40,987: ERROR/ForkPoolWorker-2] Task ingest_document[75599418-e245-414b-acb0-0b2e9c943bd7] raised unexpected: PdfStreamError('Stream has ended unexpectedly')
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/celery/app/trace.py", line 453, in trace_task
+    R = retval = fun(*args, **kwargs)
+                 ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/celery/app/trace.py", line 736, in __protected_call__
+    return self.run(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/celery/app/autoretry.py", line 60, in run
+    ret = task.retry(exc=exc, **retry_kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/celery/app/task.py", line 736, in retry
+    raise_with_context(exc)
+  File "/usr/local/lib/python3.12/site-packages/celery/app/autoretry.py", line 38, in run
+    return task._orig_run(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/app/tasks.py", line 60, in ingest_document
+    text = extract_text(data, doc.content_type, doc.filename)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/app/parsing.py", line 15, in extract_text
+    reader = PdfReader(io.BytesIO(data))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 133, in __init__
+    self._initialize_stream(stream)
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 155, in _initialize_stream
+    self.read(stream)
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 608, in read
+    self._find_eof_marker(stream)
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_reader.py", line 716, in _find_eof_marker
+    line = read_previous_line(stream)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/pypdf/_utils.py", line 288, in read_previous_line
+    raise PdfStreamError(STREAM_TRUNCATED_PREMATURELY)
+pypdf.errors.PdfStreamError: Stream has ended unexpectedly
+/usr/local/lib/python3.12/site-packages/celery/platforms.py:829: SecurityWarning: You're running the worker with superuser privileges: this is
+absolutely not recommended!
+
+Please specify a different user using the --uid option.
+
+User information: uid=0 euid=0 gid=0 egid=0
+
+  warnings.warn(SecurityWarning(ROOT_DISCOURAGED.format(
+
+worker: Warm shutdown (MainProcess)
+ 
+ -------------- celery@6b3829ecd8e5 v5.4.0 (opalescent)
+--- ***** ----- 
+-- ******* ---- Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.41 2026-10-14 17:35:11
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         semantic_search:0x7c6c3103bec0
+- ** ---------- .> transport:   redis://semantic-finalise-drill-redis:6379/1
+- ** ---------- .> results:     redis://semantic-finalise-drill-redis:6379/2
+- *** --- * --- .> concurrency: 2 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> celery           exchange=celery(direct) key=celery
+                
+
+[tasks]
+  . ingest_document
+
+[2026-10-14 17:35:11,956: WARNING/MainProcess] /usr/local/lib/python3.12/site-packages/celery/worker/consumer/consumer.py:508: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
+whether broker connection retries are made during startup in Celery 6.0 and above.
+If you wish to retain the existing behavior for retrying connections on startup,
+you should set broker_connection_retry_on_startup to True.
+  warnings.warn(
+
+[2026-10-14 17:35:11,972: INFO/MainProcess] Connected to redis://semantic-finalise-drill-redis:6379/1
+[2026-10-14 17:35:11,974: WARNING/MainProcess] /usr/local/lib/python3.12/site-packages/celery/worker/consumer/consumer.py:508: CPendingDeprecationWarning: The broker_connection_retry configuration setting will no longer determine
+whether broker connection retries are made during startup in Celery 6.0 and above.
+If you wish to retain the existing behavior for retrying connections on startup,
+you should set broker_connection_retry_on_startup to True.
+  warnings.warn(
+
+[2026-10-14 17:35:11,985: INFO/MainProcess] mingle: searching for neighbors
+[2026-10-14 17:35:13,002: INFO/MainProcess] mingle: all alone
+[2026-10-14 17:35:13,017: INFO/MainProcess] celery@6b3829ecd8e5 ready.

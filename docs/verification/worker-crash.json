@@ -1,0 +1,70 @@
+{
+  "worker_container": "semantic-finalise-drill-worker",
+  "visibility_timeout_seconds": 10,
+  "before_sigkill": [
+    {
+      "id": "2aaa06fc-f7ac-465c-a519-0169ec34113e",
+      "filename": "crash-probe-0.txt",
+      "content_type": "text/plain",
+      "status": "processing",
+      "num_chunks": 0,
+      "error": null,
+      "created_at": "2026-10-14T17:36:54.917588Z",
+      "updated_at": "2026-10-14T17:36:55.110620Z"
+    },
+    {
+      "id": "349975c9-a8e1-4e60-8aa4-69388938bb57",
+      "filename": "crash-probe-1.txt",
+      "content_type": "text/plain",
+      "status": "processing",
+      "num_chunks": 0,
+      "error": null,
+      "created_at": "2026-10-14T17:36:57.000178Z",
+      "updated_at": "2026-10-14T17:36:57.199334Z"
+    },
+    {
+      "id": "89b68baa-1c44-474c-b04d-bb1e6e3181fa",
+      "filename": "crash-probe-2.txt",
+      "content_type": "text/plain",
+      "status": "pending",
+      "num_chunks": 0,
+      "error": null,
+      "created_at": "2026-10-14T17:36:59.084097Z",
+      "updated_at": "2026-10-14T17:36:59.084103Z"
+    }
+  ],
+  "after_restart": [
+    {
+      "id": "2aaa06fc-f7ac-465c-a519-0169ec34113e",
+      "filename": "crash-probe-0.txt",
+      "content_type": "text/plain",
+      "status": "done",
+      "num_chunks": 58,
+      "error": null,
+      "created_at": "2026-10-14T17:36:54.917588Z",
+      "updated_at": "2026-10-14T17:37:41.137139Z"
+    },
+    {
+      "id": "349975c9-a8e1-4e60-8aa4-69388938bb57",
+      "filename": "crash-probe-1.txt",
+      "content_type": "text/plain",
+      "status": "done",
+      "num_chunks": 58,
+      "error": null,
+      "created_at": "2026-10-14T17:36:57.000178Z",
+      "updated_at": "2026-10-14T17:37:41.043488Z"
+    },
+    {
+      "id": "89b68baa-1c44-474c-b04d-bb1e6e3181fa",
+      "filename": "crash-probe-2.txt",
+      "content_type": "text/plain",
+      "status": "done",
+      "num_chunks": 58,
+      "error": null,
+      "created_at": "2026-10-14T17:36:59.084097Z",
+      "updated_at": "2026-10-14T17:37:57.895241Z"
+    }
+  ],
+  "all_recovered": true,
+  "scope": "disposable database and Redis instance"
+}

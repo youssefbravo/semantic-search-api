@@ -1,0 +1,3 @@
+Semantic search portfolio demo.
+A task queue separates slow ingestion from an HTTP request.
+Celery can deliver a document task more than once, so ingestion must preserve retry files and prevent duplicate chunks.

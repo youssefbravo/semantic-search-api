@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-14",
+  "source_base_commit": "4ca2965",
+  "corpus_documents": 22,
+  "corpus_chunks": 29,
+  "queries": 59,
+  "k": 5,
+  "repeats": 1,
+  "cpu": "AMD Ryzen 7 5800H",
+  "environment": "Docker Desktop Linux containers on Windows/WSL2; Docker VM reports 7.681 GiB",
+  "requested_environment": {
+    "OMP_NUM_THREADS": "2",
+    "MKL_NUM_THREADS": "2"
+  },
+  "latency_scope": "warmed direct retrieval, no HTTP or cache; model-load warmup excluded by original runner",
+  "cpu_contention": "Other local containers, test processes and frontend builds were running. Latencies are descriptive, not controlled before/after comparisons.",
+  "backend_image_reused": "semantic-search-api:latest, initial image ID 42d803df475c",
+  "paradedb_digest": "sha256:371e180894738e563404f10486835bcd86ca08eb36af1005bd69a1b0bedb40fe",
+  "redis_digest": "sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99",
+  "precision_denominator": "number of returned positions (historical implementation)",
+  "initial_attempt": "Uncapped baseline run stopped for CPU oversubscription; no result claimed from that attempt",
+  "preserved_original_results": "eval/baseline/benchmark.json and docs/images/benchmark_k5.json remain unchanged"
+}

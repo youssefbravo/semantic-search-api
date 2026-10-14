@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="5" time="9.239" timestamp="2026-10-14T17:08:59.051060+00:00" hostname="064ff2d76aa5"><testcase classname="tests.integration.test_portfolio_regressions" name="test_overlap_is_inside_budget" time="0.674"><failure message="assert False&#10; +  where False = all(&lt;generator object test_overlap_is_inside_budget.&lt;locals&gt;.&lt;genexpr&gt; at 0x7ac3059b5be0&gt;)">def test_overlap_is_inside_budget():
+        chunks = chunk_text('Alpha beta gamma delta epsilon. ' * 4 + 'Token ' * 90, 40, 15)
+&gt;       assert all(c.token_count &lt;= 40 for c in chunks)
+E       assert False
+E        +  where False = all(&lt;generator object test_overlap_is_inside_budget.&lt;locals&gt;.&lt;genexpr&gt; at 0x7ac3059b5be0&gt;)
+
+tests/integration/test_portfolio_regressions.py:16: AssertionError</failure></testcase><testcase classname="tests.integration.test_portfolio_regressions" name="test_single_word_can_exceed_budget" time="0.005"><failure message="AssertionError: assert 1 &gt; 1&#10; +  where 1 = len([TextChunk(content='alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-al...ha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-', token_count=400)])">def test_single_word_can_exceed_budget():
+        chunks = chunk_text('alpha-' * 200, 40, 0)
+&gt;       assert len(chunks) &gt; 1
+E       AssertionError: assert 1 &gt; 1
+E        +  where 1 = len([TextChunk(content='alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-al...ha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-alpha-', token_count=400)])
+
+tests/integration/test_portfolio_regressions.py:21: AssertionError</failure></testcase><testcase classname="tests.integration.test_portfolio_regressions" name="test_zero_overlap_is_respected" time="0.002"><failure message="assert 2 == 1&#10; +  where 2 = sum(&lt;generator object test_zero_overlap_is_respected.&lt;locals&gt;.&lt;genexpr&gt; at 0x7ac2f35f9150&gt;)">def test_zero_overlap_is_respected():
+        chunks = chunk_text('First alpha beta gamma. Second delta epsilon zeta. Third eta theta iota.', 10, 0)
+&gt;       assert sum(c.content.count('First') for c in chunks) == 1
+E       assert 2 == 1
+E        +  where 2 = sum(&lt;generator object test_zero_overlap_is_respected.&lt;locals&gt;.&lt;genexpr&gt; at 0x7ac2f35f9150&gt;)
+
+tests/integration/test_portfolio_regressions.py:27: AssertionError</failure></testcase><testcase classname="tests.integration.test_portfolio_regressions" name="test_upload_read_is_bounded" time="0.002" /><testcase classname="tests.integration.test_portfolio_regressions" name="test_submission_failure_is_terminal" time="0.395" /></testsuite></testsuites>

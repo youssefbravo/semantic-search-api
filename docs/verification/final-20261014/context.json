@@ -1,0 +1,32 @@
+{
+  "source_commit": "fd9c734",
+  "indexed_documents": 22,
+  "indexed_chunks": 29,
+  "all_document_rows_at_reporting": 30,
+  "unindexed_test_fixture_rows": 8,
+  "note": "The corpus was ingested before the final run. Concurrent HTTP/unit fixtures added rows without indexed chunks. All 22 corpus chunk lists were compared against current chunk_text and matched. This context supplements, not replaces, the original benchmark JSON.",
+  "PostgreSQL": "18.4",
+  "pg_search": "0.24.1",
+  "pgvector": "0.8.2",
+  "source_hashes": {
+    "app\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app\\cache.py": "cc3aaa17bc998ff7635ba85d43f4b0d7d63a0b4ac51a72ada8b2e871a61e1d08",
+    "app\\celery_app.py": "faa3d130d36392f79f4ed2d9b7773062602cbf8ed4dab883716815e25b9cdf04",
+    "app\\chunking.py": "387cca73f6cb187598b91a1e3ae081e47aa4858f517ebb6be1bccd303873b9de",
+    "app\\config.py": "d8aff1ee5dc11a62f7c4363b97098818cbb10c5beaa7dd640ee107828cb860d8",
+    "app\\db.py": "561c8bcefc1a470ba4412a3daacaa9c33c6fe4e8bb84502a440fb6ec35d304cf",
+    "app\\embeddings.py": "370c997167be5ab2c1c31b7273a0c36642ef3ba8f8960426d4e048ccafbbd3a2",
+    "app\\main.py": "67cc5c17a55072ae018cfc88ddd172dd8cce68a511f061770845e377e1823959",
+    "app\\models.py": "ecd7a06760ef1cd149448f233770bb67dd60e1af596fd24e10a479ac23647c5c",
+    "app\\parsing.py": "85a0ce61e6e7a58c3874851bf962a10ae6217cf195c3e45239669f17f62bf944",
+    "app\\ratelimit.py": "103cbbd8600946dad342559e6fbedb7687e3c8ddef713e2a593ec668e29f5c09",
+    "app\\redis_client.py": "af19ce5e069392a7d6519a363f339651e85129b3a0a8d9532f370bfa387688c2",
+    "app\\reranker.py": "30e8eafba8ab5176c922a970f56d36d6ba2f316c5396691b1c6d43f2b4c82bbc",
+    "app\\routers\\__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app\\routers\\documents.py": "6bd3e7c8c20c07aed9974d96a75eff2c768521294a22ab67f8a409931dc7db7d",
+    "app\\routers\\search.py": "29d69fd29e4b587aba4f6f49838e1857a359bf88f33f9041f51cc5f3867714d5",
+    "app\\schemas.py": "99e8befe69ebc996fb17240913be7df128aef0ce155c29b5f5653ef0a933d41e",
+    "app\\search.py": "216de782991de7dbb5589a6f1aee6a967830f9adf2a751d933bbfb85e0a73371",
+    "app\\tasks.py": "72bcd85cca5fa135cc9df9d6ec1732ed411103f6f202dec2569d16d336b3fba2"
+  }
+}

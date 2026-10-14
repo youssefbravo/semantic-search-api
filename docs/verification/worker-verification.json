@@ -1,0 +1,37 @@
+{
+  "success": {
+    "id": "e5582070-8508-4df4-9788-462fb44ea05e",
+    "filename": "worker-demo.txt",
+    "content_type": "text/plain",
+    "status": "done",
+    "num_chunks": 1,
+    "error": null,
+    "created_at": "2026-10-14T17:39:10.614232Z",
+    "updated_at": "2026-10-14T17:39:10.715509Z"
+  },
+  "failed_after_worker_retries": {
+    "id": "efe408f1-a81f-4f45-8696-495e8de4aa39",
+    "filename": "invalid-worker-demo.pdf",
+    "content_type": "application/pdf",
+    "status": "failed",
+    "num_chunks": 0,
+    "error": "Stream has ended unexpectedly",
+    "created_at": "2026-10-14T17:39:10.843305Z",
+    "updated_at": "2026-10-14T17:39:11.945664Z"
+  },
+  "valid_pdf": {
+    "id": "fbdafb99-8fe8-438b-9022-d6c5f2073258",
+    "filename": "valid-worker-demo.pdf",
+    "content_type": "application/pdf",
+    "status": "done",
+    "num_chunks": 1,
+    "error": null,
+    "created_at": "2026-10-14T17:39:12.398011Z",
+    "updated_at": "2026-10-14T17:39:12.471565Z"
+  },
+  "concurrent_and_completed_redelivery": "passed",
+  "cache_refresh_after_ingestion": "passed",
+  "mocked_queue": false,
+  "keyword_uncached_latency_ms": 45.26,
+  "keyword_cached_latency_ms": 3.02
+}
