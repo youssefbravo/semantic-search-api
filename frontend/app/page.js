@@ -8,11 +8,12 @@ import { search } from "../lib/api";
 const MODES = [
   { key: "keyword", label: "Keyword (BM25)", blurb: "Exact word matching", accent: "text-amber-300" },
   { key: "semantic", label: "Semantic", blurb: "By meaning", accent: "text-sky-300" },
-  { key: "hybrid", label: "Hybrid (RRF)", blurb: "Best of both", accent: "text-indigo-300" },
+  { key: "hybrid", label: "Hybrid (RRF)", blurb: "Combines both rankings", accent: "text-indigo-300" },
+  { key: "rerank", label: "Rerank", blurb: "Scores query and passage together", accent: "text-emerald-300" },
 ];
 
 const EXAMPLES = [
-  "which animal looks like it is smiling in photos",
+  "What does the ef_search parameter control?",
   "how do I stop one user from spamming my server",
   "what makes containers lighter than virtual machines",
   "why does measuring the angle between vectors ignore length",
@@ -33,7 +34,7 @@ export default function Home() {
     setError(null);
     setResults(null);
     try {
-      // Fire all three modes in parallel against the same query.
+      // Fire all four modes in parallel against the same query.
       const entries = await Promise.all(
         MODES.map(async (m) => [m.key, await search(text, m.key, k)])
       );
@@ -53,10 +54,9 @@ export default function Home() {
           Document Semantic Search
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-slate-400">
-          Upload documents, then ask a question in plain English. The same query runs
+          Find relevant passages in uploaded documents. This demo retrieves text; it does not generate answers. The same query runs
           through <span className="text-amber-300">keyword</span>,{" "}
-          <span className="text-sky-300">semantic</span>, and{" "}
-          <span className="text-indigo-300">hybrid</span> retrieval at once — so you can
+          <span className="text-sky-300">semantic</span>, <span className="text-indigo-300">hybrid</span>, and <span className="text-emerald-300">rerank</span> retrieval at once — so you can
           see exactly how they differ.
         </p>
       </header>
@@ -76,6 +76,8 @@ export default function Home() {
           className="flex flex-col gap-3 sm:flex-row"
         >
           <input
+            aria-label="Search query"
+            maxLength={1000}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Ask anything about your documents…"
@@ -123,7 +125,7 @@ export default function Home() {
       </section>
 
       {/* Comparison grid */}
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {MODES.map((m) => (
           <ModeColumn
             key={m.key}

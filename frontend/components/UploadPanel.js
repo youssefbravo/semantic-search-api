@@ -14,11 +14,13 @@ const STATE_STYLES = {
 
 export default function UploadPanel() {
   const [doc, setDoc] = useState(null); // {filename, state, chunks}
+  const [error, setError] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef(null);
 
   async function handleFile(file) {
     if (!file) return;
+    setError(null);
     setDoc({ filename: file.name, state: "uploading", chunks: 0 });
     try {
       const created = await uploadDocument(file);
@@ -27,12 +29,19 @@ export default function UploadPanel() {
       for (let i = 0; i < 60; i++) {
         const d = await getDocument(created.id);
         setDoc({ filename: file.name, state: d.status, chunks: d.num_chunks });
-        if (d.status === "done" || d.status === "failed") break;
+        if (d.status === "failed") { setError(d.error || "Ingestion failed."); return; }
+        if (d.status === "done") return;
         await new Promise((r) => setTimeout(r, 1000));
       }
+      setError("Still processing. Check the document status in the API; large files may take longer.");
     } catch (e) {
+      setError(e.message);
       setDoc({ filename: file.name, state: "error", chunks: 0 });
     }
+  }
+
+  if (process.env.NEXT_PUBLIC_READ_ONLY === "true") {
+    return <p className="text-sm text-slate-400">Public demo: search the curated corpus. Uploads are disabled.</p>;
   }
 
   return (
@@ -69,6 +78,7 @@ export default function UploadPanel() {
         It’s chunked, embedded, and indexed in the background.
       </div>
 
+      {error && <p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>}
       {doc && (
         <div className="mt-4 flex items-center justify-center gap-3 text-sm">
           <span className="truncate max-w-[14rem] text-slate-300">{doc.filename}</span>

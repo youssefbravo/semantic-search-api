@@ -1,6 +1,6 @@
 // The browser talks to the API via the published port on the host. NEXT_PUBLIC_*
 // vars are inlined at build time; the default works for the docker-compose setup.
-const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 export async function search(query, mode, k = 5) {
   const res = await fetch(`${BASE}/search`, {

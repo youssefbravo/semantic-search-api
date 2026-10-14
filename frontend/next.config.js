@@ -2,8 +2,9 @@
 const nextConfig = {
   // Produce a self-contained server bundle for a lean Docker image.
   output: "standalone",
-  // The portfolio value is the app, not lint config — don't fail the build on lint.
-  eslint: { ignoreDuringBuilds: true },
+  async rewrites() {
+    return [{ source: "/api/:path*", destination: `${process.env.API_INTERNAL_URL || "http://api:8000"}/:path*` }];
+  },
 };
 
 module.exports = nextConfig;

@@ -1,13 +1,16 @@
 # --- build stage ---
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
+ARG NEXT_PUBLIC_READ_ONLY=false
+ENV NEXT_PUBLIC_READ_ONLY=$NEXT_PUBLIC_READ_ONLY
+ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci
 COPY . .
 RUN npm run build
 
 # --- runtime stage (Next.js standalone output) ---
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0

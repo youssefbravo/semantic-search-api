@@ -1,0 +1,34 @@
+services:
+  api:
+    environment:
+      READ_ONLY_DEMO: "true"
+    restart: unless-stopped
+  worker:
+    restart: unless-stopped
+  postgres:
+    restart: unless-stopped
+  redis:
+    restart: unless-stopped
+  frontend:
+    build:
+      args:
+        NEXT_PUBLIC_READ_ONLY: "true"
+    restart: unless-stopped
+  caddy:
+    image: caddy:2.10.2-alpine
+    environment:
+      DEMO_DOMAIN: ${DEMO_DOMAIN:?Set the approved demo DNS name}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/google-cloud/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - api
+volumes:
+  caddy-data:
+  caddy-config:

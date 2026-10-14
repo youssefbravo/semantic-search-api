@@ -1,0 +1,13 @@
+{$DEMO_DOMAIN} {
+    request_body {
+        max_size 16KB
+    }
+    @blocked path /documents* /api/documents* /docs* /api/docs* /openapi.json /api/openapi.json /metrics* /api/metrics*
+    respond @blocked "Demo uses a curated public corpus; uploads and operational endpoints are disabled." 403
+    handle_path /api/* {
+        reverse_proxy api:8000
+    }
+    handle {
+        reverse_proxy frontend:3000
+    }
+}
