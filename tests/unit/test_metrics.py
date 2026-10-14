@@ -12,6 +12,7 @@ def test_precision_at_k():
     assert precision_at_k(retrieved, relevant, 2) == pytest.approx(0.5)  # [a,b]
     assert precision_at_k(retrieved, relevant, 4) == pytest.approx(0.5)  # 2/4
     assert precision_at_k([], relevant, 5) == 0.0
+    assert precision_at_k(["a"], {"a"}, 5) == pytest.approx(0.2)
 
 
 def test_recall_at_k():

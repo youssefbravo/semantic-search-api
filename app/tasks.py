@@ -1,11 +1,12 @@
 import logging
 import os
 
-from sqlalchemy import delete
+from sqlalchemy import delete, text as sql_text
+from sqlalchemy.orm import Session
 
 from .celery_app import celery_app
 from .chunking import chunk_text
-from .db import SessionLocal
+from .db import engine
 from .embeddings import embed_passages
 from .models import Chunk, DocStatus, Document
 from .parsing import extract_text
@@ -30,8 +31,14 @@ def ingest_document(self, document_id: str, raw_path: str) -> None:
     Raw bytes are read from a shared upload volume rather than passed through the
     broker (brokers are for small messages, not file payloads).
     """
-    db = SessionLocal()
+    # A session advisory lock survives the processing-status commit. Pin it to
+    # one connection, so concurrent deliveries cannot delete/reinsert each other's
+    # chunks or remove the file while another delivery is reading it.
+    connection = engine.connect()
+    db = Session(bind=connection)
     try:
+        db.execute(sql_text("SELECT pg_advisory_lock(hashtextextended(:id, 0))"),
+                   {"id": document_id})
         doc = db.get(Document, document_id)
         if doc is None:
             logger.error("Document %s vanished before ingestion", document_id)
@@ -41,6 +48,7 @@ def ingest_document(self, document_id: str, raw_path: str) -> None:
                 "Document %s already ingested; skipping duplicate delivery",
                 document_id,
             )
+            _remove_staged_file(raw_path)
             return
 
         doc.status = DocStatus.processing
@@ -61,6 +69,8 @@ def ingest_document(self, document_id: str, raw_path: str) -> None:
             return
 
         vectors = embed_passages([c.content for c in chunks])
+        if len(vectors) != len(chunks):
+            raise ValueError("Embedding count does not match chunk count")
         db.execute(delete(Chunk).where(Chunk.document_id == doc.id))
         db.add_all(
             [
@@ -95,6 +105,12 @@ def ingest_document(self, document_id: str, raw_path: str) -> None:
         raise
     finally:
         db.close()
+        try:
+            connection.execute(sql_text("SELECT pg_advisory_unlock(hashtextextended(:id, 0))"),
+                               {"id": document_id})
+            connection.commit()
+        finally:
+            connection.close()
 
 
 def _remove_staged_file(raw_path: str) -> None:

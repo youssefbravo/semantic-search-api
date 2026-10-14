@@ -6,13 +6,16 @@ x-app-env: &app-env
   CELERY_RESULT_BACKEND: redis://redis:6379/2
   REDIS_VISIBILITY_TIMEOUT_SECONDS: 300
   UPLOAD_DIR: /data/uploads
+  OPENBLAS_NUM_THREADS: 2
+  OMP_NUM_THREADS: 2
+  MKL_NUM_THREADS: 2
   METRICS_ENABLED: "true"
 
 services:
   postgres:
     # ParadeDB bundles BOTH pgvector and pg_search (BM25) in one image, so a single
     # database serves semantic AND lexical retrieval — no separate search engine.
-    image: paradedb/paradedb:latest
+    image: paradedb/paradedb@sha256:371e180894738e563404f10486835bcd86ca08eb36af1005bd69a1b0bedb40fe
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -28,7 +31,10 @@ services:
       retries: 12
 
   redis:
-    image: redis:7-alpine
+    image: redis@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+    command: redis-server --appendonly yes --appendfsync everysec
+    volumes:
+      - redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -37,7 +43,7 @@ services:
 
   api:
     build: .
-    image: semantic-search-api:latest
+    image: semantic-search-api:portfolio
     # Initialise the schema (extensions + tables + HNSW/BM25 indexes) once Postgres
     # is healthy, then serve. init_db is idempotent.
     command: sh -c "python -m scripts.init_db && uvicorn app.main:app --host 0.0.0.0 --port 8000"
@@ -55,7 +61,7 @@ services:
 
   frontend:
     build: ./frontend
-    image: semantic-search-frontend:latest
+    image: semantic-search-frontend:portfolio
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
@@ -63,7 +69,7 @@ services:
 
   worker:
     build: .
-    image: semantic-search-api:latest  # same image as api; built once
+    image: semantic-search-api:portfolio  # same image as api; built once
     command: celery -A app.celery_app:celery_app worker --loglevel=info --concurrency=2
     environment: *app-env
     volumes:
@@ -103,6 +109,7 @@ services:
 
 volumes:
   pgdata:
+  redisdata:
   uploads:
   prometheus-data:
   grafana-data:

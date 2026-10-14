@@ -2,7 +2,7 @@
 
 Every mode returns a list[SearchResult] with a 1-based `rank` and a `score`. Note
 the scores are NOT comparable across modes (BM25 scores, cosine similarities, RRF
-scores, and cross-encoder logits live on different scales) — `rank` is the common
+scores, and cross-encoder relevance scores live on different scales) — `rank` is the common
 currency, which is exactly why hybrid fuses on rank (RRF), not on raw score.
 """
 import uuid

@@ -1,8 +1,8 @@
 """Redis-backed cache for repeated search queries.
 
-Key = hash(query + mode + k): two genuinely identical searches hit the cache, a
-change in any parameter misses. Entries carry a TTL so results can't outlive newly
-ingested documents by more than cache_ttl_seconds. All operations degrade gracefully
+Key = hash(corpus version + query + mode + k): identical searches against the same
+committed corpus hit the cache. The endpoint obtains the corpus version from Postgres.
+TTL removes unreachable keys from older corpus versions. All operations degrade gracefully
 (treat Redis errors as a cache miss) so a Redis hiccup never fails a search.
 """
 import hashlib
@@ -18,8 +18,9 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-def cache_key(query: str, mode: str, k: int) -> str:
-    raw = f"{mode}|{k}|{query.strip().lower()}"
+def cache_key(query: str, mode: str, k: int, corpus_version: str = "") -> str:
+    # Preserve case: model inference is not guaranteed to be case invariant.
+    raw = f"{corpus_version}|{mode}|{k}|{query.strip()}"
     return "search:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 

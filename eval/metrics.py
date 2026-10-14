@@ -10,9 +10,9 @@ from collections.abc import Hashable, Sequence
 def precision_at_k(retrieved: Sequence[Hashable], relevant: set, k: int) -> float:
     """Fraction of the top-k that are relevant."""
     top = retrieved[:k]
-    if not top:
+    if k <= 0 or not top:
         return 0.0
-    return sum(1 for r in top if r in relevant) / len(top)
+    return sum(1 for r in top if r in relevant) / k
 
 
 def recall_at_k(retrieved: Sequence[Hashable], relevant: set, k: int) -> float:

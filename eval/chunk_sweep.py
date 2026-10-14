@@ -5,7 +5,7 @@ the corpus, embeds passages + queries, and runs pure semantic retrieval in-memor
 (cosine over normalized vectors). Isolating one variable (chunk size) with one
 retriever (semantic) makes the result clean to interpret and fast to run.
 
-    python -m eval.chunk_sweep --sizes 200 400 600
+    python -m eval.chunk_sweep --sizes 200 400 500
 
 Turns "I picked 400 tokens" into "I measured that 400 won on my set."
 """
@@ -115,7 +115,7 @@ def _write_outputs(rows: list[dict], k: int) -> None:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sizes", type=int, nargs="+", default=[200, 400, 600])
+    ap.add_argument("--sizes", type=int, nargs="+", default=[200, 400, 500])
     ap.add_argument("--k", type=int, default=10)
     args = ap.parse_args()
     sweep(args.sizes, args.k)

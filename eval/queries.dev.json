@@ -1,0 +1,8 @@
+{"description":"Development probes only; authored after inspection; not an unbiased holdout or used to claim generalisation.","queries":[
+{"id":"dev01","query":"What allows occasional spikes in API requests without permitting sustained overload?","markers":["token bucket algorithm allows short bursts"]},
+{"id":"dev02","query":"How does the upload route avoid making users wait for embedding?","markers":["handed off to a queue"]},
+{"id":"dev03","query":"Why should duplicate queue messages be harmless?","markers":["idempotent and retryable"]},
+{"id":"dev04","query":"Which measure ignores vector magnitude?","markers":["Cosine similarity instead measures the angle"]},
+{"id":"dev05","query":"When does a dot product give cosine similarity?","markers":["dot product equals the cosine similarity exactly"]},
+{"id":"dev06","query":"Why share rate-limit state between server replicas?","markers":["single source of truth"]}
+]}

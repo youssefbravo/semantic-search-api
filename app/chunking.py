@@ -20,13 +20,14 @@ _PARAGRAPH_RE = re.compile(r"\n\s*\n")
 def _tokenizer():
     # Same tokenizer the embedding model uses, so our token counts match what the
     # model actually sees at encode time.
-    return AutoTokenizer.from_pretrained(settings.embedding_model_name)
+    return AutoTokenizer.from_pretrained(settings.embedding_model_name,
+                                        revision=settings.embedding_model_revision)
 
 
 def count_tokens(text: str) -> int:
     # add_special_tokens=False: count *content* tokens only. The model adds [CLS]/[SEP]
-    # at encode time, and queries add a prefix — keeping content under max_tokens
-    # leaves headroom for both so nothing gets truncated.
+    # at encode time. Passage budgets reserve those special tokens separately;
+    # the embedding module checks query lengths including the instruction prefix.
     return len(_tokenizer().encode(text, add_special_tokens=False))
 
 
@@ -46,17 +47,19 @@ def _split_sentences(paragraph: str) -> list[str]:
 
 def _hard_split(sentence: str, max_tokens: int) -> list[str]:
     """Fallback for a single 'sentence' longer than max_tokens (table rows, URL
-    dumps, code). Split on words to guarantee no unit ever exceeds the cap."""
-    words = sentence.split()
+    dumps, code). Split token IDs and verify re-encoded text, including unbroken strings."""
+    tokens = _tokenizer().encode(sentence, add_special_tokens=False)
     out: list[str] = []
-    cur: list[str] = []
-    for w in words:
-        cur.append(w)
-        if count_tokens(" ".join(cur)) >= max_tokens:
-            out.append(" ".join(cur))
-            cur = []
-    if cur:
-        out.append(" ".join(cur))
+    while tokens:
+        n = min(max_tokens, len(tokens))
+        piece = _tokenizer().decode(tokens[:n], skip_special_tokens=True).strip()
+        # Decoding and encoding can change token boundaries; verify emitted text.
+        while n > 1 and count_tokens(piece) > max_tokens:
+            n -= 1
+            piece = _tokenizer().decode(tokens[:n], skip_special_tokens=True).strip()
+        if piece:
+            out.append(piece)
+        tokens = tokens[n:]
     return out
 
 
@@ -81,43 +84,37 @@ def chunk_text(
     max_tokens / overlap_tokens are parameters (not hardcoded) so the benchmark in
     phase 4 can sweep them and we can SHOW the chosen value is empirically best.
     """
-    max_tokens = max_tokens or settings.chunk_max_tokens
-    overlap_tokens = overlap_tokens or settings.chunk_overlap_tokens
+    max_tokens = settings.chunk_max_tokens if max_tokens is None else max_tokens
+    overlap_tokens = settings.chunk_overlap_tokens if overlap_tokens is None else overlap_tokens
+    content_limit = _tokenizer().model_max_length - _tokenizer().num_special_tokens_to_add()
+    if max_tokens <= 0 or max_tokens > content_limit:
+        raise ValueError(f"max_tokens must be between 1 and {content_limit}")
+    if not 0 <= overlap_tokens < max_tokens:
+        raise ValueError("overlap_tokens must be nonnegative and smaller than max_tokens")
 
-    # Flatten to ordered sentence units, each guaranteed <= max_tokens.
     units: list[str] = []
     for para in _split_paragraphs(text):
         for sent in _split_sentences(para):
-            if count_tokens(sent) > max_tokens:
-                units.extend(_hard_split(sent, max_tokens))
-            else:
-                units.append(sent)
+            units.extend(_hard_split(sent, max_tokens) if count_tokens(sent) > max_tokens else [sent])
 
     chunks: list[TextChunk] = []
     cur: list[str] = []
-    cur_tokens = 0
-
-    def emit() -> None:
-        if cur:
-            joined = " ".join(cur)
-            chunks.append(TextChunk(content=joined, token_count=count_tokens(joined)))
-
     for unit in units:
-        ut = count_tokens(unit)
-        if cur and cur_tokens + ut > max_tokens:
-            emit()
-            # Seed the next chunk with trailing sentences summing to ~overlap_tokens.
+        if cur and count_tokens(" ".join([*cur, unit])) > max_tokens:
+            joined = " ".join(cur)
+            chunks.append(TextChunk(joined, count_tokens(joined)))
             overlap: list[str] = []
-            otok = 0
-            for s in reversed(cur):
-                st = count_tokens(s)
-                if otok + st > overlap_tokens:
+            for sentence in reversed(cur):
+                candidate = [sentence, *overlap]
+                if count_tokens(" ".join(candidate)) > overlap_tokens:
                     break
-                overlap.insert(0, s)
-                otok += st
-            cur, cur_tokens = overlap, otok
+                overlap = candidate
+            # Incoming units may consume the entire budget; shrink the overlap.
+            while overlap and count_tokens(" ".join([*overlap, unit])) > max_tokens:
+                overlap.pop(0)
+            cur = overlap
         cur.append(unit)
-        cur_tokens += ut
-
-    emit()
+    if cur:
+        joined = " ".join(cur)
+        chunks.append(TextChunk(joined, count_tokens(joined)))
     return chunks

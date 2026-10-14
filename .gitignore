@@ -22,3 +22,13 @@ eval/results/
 Thumbs.db
 .idea/
 .vscode/
+
+# Local audit overrides and frontend dependencies
+compose.audit.yml
+baseline-tests.xml
+frontend/node_modules/
+frontend/.next/
+.mypy_cache/
+.ruff_cache/
+Dockerfile.audit
+deploy/google-cloud/.env

@@ -10,3 +10,11 @@ data/
 eval/results/
 .env
 *.md.bak
+
+frontend/node_modules/
+frontend/.next/
+docs/verification/
+compose.audit.yml
+Dockerfile.audit
+baseline-tests.xml
+frontend/audit-npm.json

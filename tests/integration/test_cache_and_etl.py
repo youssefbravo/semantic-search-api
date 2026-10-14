@@ -42,14 +42,15 @@ def test_cache_set_then_get_roundtrips_with_ttl(redis_ok):
     assert 0 < ttl <= get_settings().cache_ttl_seconds
 
 
-def test_cache_key_normalizes_edge_whitespace_and_case(redis_ok):
+def test_cache_key_preserves_case_and_normalizes_edge_whitespace(redis_ok):
     from app.cache import cache_key
 
-    # cache_key does query.strip().lower(): leading/trailing whitespace + case are
-    # normalized (so trivially-different repeats still hit), internal spacing is NOT.
+    # Leading/trailing whitespace is normalized; case and internal spacing remain
+    # significant because inference need not be invariant to them.
     assert cache_key("  Hello World ", "semantic", 5) == cache_key(
-        "hello world", "semantic", 5
+        "Hello World", "semantic", 5
     )
+    assert cache_key("Hello World", "semantic", 5) != cache_key("hello world", "semantic", 5)
     # Internal whitespace is significant (documents the actual contract).
     assert cache_key("hello  world", "semantic", 5) != cache_key(
         "hello world", "semantic", 5

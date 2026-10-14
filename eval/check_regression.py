@@ -20,6 +20,9 @@ def main() -> int:
     baseline = _load(Path(args.baseline))
     current = _load(Path(args.current))
     k = baseline["k"]
+    if current["k"] != k or current["n_queries"] != baseline["n_queries"]:
+        print("Incompatible benchmark k/query count")
+        return 1
     metric = f"ndcg_at_{k}"
 
     failures: list[str] = []

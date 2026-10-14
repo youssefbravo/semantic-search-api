@@ -18,9 +18,9 @@ def test_chunks_respect_token_budget():
     max_tokens, overlap = 80, 16
     chunks = chunk_text(LONG_TEXT, max_tokens=max_tokens, overlap_tokens=overlap)
     assert len(chunks) > 1
-    # Each chunk targets max_tokens; overlap may add up to overlap_tokens on top.
+    # The entire chunk, including overlap, stays inside the budget.
     for c in chunks:
-        assert c.token_count <= max_tokens + overlap
+        assert c.token_count <= max_tokens
         assert c.token_count == count_tokens(c.content)
         assert c.content.strip()
 
@@ -47,4 +47,4 @@ def test_single_overlong_sentence_is_hard_split():
     chunks = chunk_text(giant, max_tokens=64, overlap_tokens=8)
     assert len(chunks) > 1
     for c in chunks:
-        assert c.token_count <= 64 + 8
+        assert c.token_count <= 64

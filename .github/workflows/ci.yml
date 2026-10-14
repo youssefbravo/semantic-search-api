@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, audit/phase-0]
+    branches: [main, audit/phase-0, "codex/**"]
   pull_request:
 
 jobs:
@@ -44,13 +44,13 @@ jobs:
         run: docker compose exec -T api python -m eval.ingest_corpus --reset
 
       - name: Run tests
-        run: docker compose exec -T api pytest -q
+        run: docker compose exec -T api pytest -q --strict-integration --junitxml=/app/eval/results/tests.xml
 
       - name: Run benchmark
-        run: docker compose exec -T api python -m eval.run_benchmark --k 5 --repeats 1
+        run: docker compose exec -T api python -m eval.run_benchmark --k 5 --repeats 1 --output-dir eval/results/ci
 
       - name: Check benchmark regression
-        run: docker compose exec -T api python -m eval.check_regression --max-drop 0.05
+        run: docker compose exec -T api python -m eval.check_regression --max-drop 0.05 --current eval/results/ci/benchmark.json
 
       - name: Dump logs on failure
         if: failure()

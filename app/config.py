@@ -23,13 +23,15 @@ class Settings(BaseSettings):
     # bge-small-en-v1.5: 384-dim, ~33M params, MIT licence, strong MTEB retrieval
     # scores at a fraction of the size of base models. Runs on CPU.
     embedding_model_name: str = "BAAI/bge-small-en-v1.5"
+    embedding_model_revision: str = "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a"
     embedding_dim: int = 384
     # bge is ASYMMETRIC: passages stored raw, queries carry this instruction prefix.
-    # Omitting it on queries silently tanks recall.
+    # Use the model's retrieval instruction consistently for query inference.
     query_prefix: str = "Represent this sentence for searching relevant passages: "
 
     # --- Reranker (phase 3) ---
     reranker_model_name: str = "BAAI/bge-reranker-base"
+    reranker_model_revision: str = "2cfc18c9415c912f9d8155881c133215df768a70"
 
     # --- Search ---
     # Hybrid: pull this many candidates from EACH of BM25 + semantic before fusing.
@@ -41,8 +43,8 @@ class Settings(BaseSettings):
     rerank_pool: int = 30
 
     # --- Chunking ---
-    # ~400 tokens leaves headroom under the model's 512 cap (after the query prefix
-    # + special tokens); 60-token overlap keeps boundary-spanning facts retrievable.
+    # Passage chunks do not receive a query prefix. 400 content tokens plus special
+    # tokens fits the 512 cap; overlap stays inside that 400-token budget.
     chunk_max_tokens: int = 400
     chunk_overlap_tokens: int = 60
 
@@ -63,6 +65,7 @@ class Settings(BaseSettings):
     upload_dir: str = "./data/uploads"
     max_upload_mb: int = 25
     ingest_api_key: str | None = None
+    read_only_demo: bool = False
 
 
 @lru_cache

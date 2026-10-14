@@ -28,9 +28,9 @@ def test_cache_key_is_stable_and_param_sensitive():
     pytest.importorskip("redis")
     from app.cache import cache_key
 
-    # Normalized over whitespace + case.
+    # Normalize edge whitespace; preserve model-sensitive case.
     assert cache_key("Hello World ", "semantic", 5) == cache_key(
-        "hello world", "semantic", 5
+        "Hello World", "semantic", 5
     )
     # Sensitive to mode and k.
     assert cache_key("q", "semantic", 5) != cache_key("q", "keyword", 5)

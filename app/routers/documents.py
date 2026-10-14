@@ -1,6 +1,7 @@
 import os
 import secrets
 import uuid
+import logging
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -13,9 +14,12 @@ from ..tasks import ingest_document
 
 settings = get_settings()
 router = APIRouter(prefix="/documents", tags=["documents"])
+logger = logging.getLogger(__name__)
 
 
 def require_ingest_api_key(x_api_key: str | None = Header(default=None)) -> None:
+    if settings.read_only_demo:
+        raise HTTPException(status_code=403, detail="Uploads disabled in the public demo")
     if settings.ingest_api_key is None:
         return
     if x_api_key is None or not secrets.compare_digest(
@@ -35,10 +39,12 @@ def upload_document(
     Returns 202 immediately — the heavy work (parse/chunk/embed) happens in the
     Celery worker so the request never blocks on the embedding model.
     """
-    data = file.file.read()
+    # UploadFile is spooled by Starlette; bound the application-level read too.
+    limit = settings.max_upload_mb * 1024 * 1024
+    data = file.file.read(limit + 1)
     if not data:
         raise HTTPException(status_code=400, detail="Empty file")
-    if len(data) > settings.max_upload_mb * 1024 * 1024:
+    if len(data) > limit:
         raise HTTPException(
             status_code=413, detail=f"File exceeds {settings.max_upload_mb} MB limit"
         )
@@ -53,13 +59,24 @@ def upload_document(
     db.refresh(doc)
 
     # Stage raw bytes on the shared upload volume for the worker to read.
-    os.makedirs(settings.upload_dir, exist_ok=True)
     ext = os.path.splitext(doc.filename)[1]
     raw_path = os.path.join(settings.upload_dir, f"{doc.id}{ext}")
-    with open(raw_path, "wb") as f:
-        f.write(data)
-
-    ingest_document.delay(str(doc.id), raw_path)
+    try:
+        os.makedirs(settings.upload_dir, exist_ok=True)
+        with open(raw_path, "wb") as f:
+            f.write(data)
+        ingest_document.delay(str(doc.id), raw_path)
+    except Exception as exc:
+        # Broker timeouts are ambiguous: delivery may have succeeded. Keep staged
+        # bytes so such a delivery can still finish; never report accepted here.
+        db.rollback()
+        db.refresh(doc)
+        if doc.status != DocStatus.done:
+            doc.status = DocStatus.failed
+            doc.error = "Staging or queue submission failed; upload again."
+            db.commit()
+        logger.exception("Unable to submit document %s", doc.id)
+        raise HTTPException(status_code=503, detail="Queue submission could not be confirmed") from exc
 
     return DocumentCreatedResponse(
         id=doc.id,

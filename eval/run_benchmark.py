@@ -14,6 +14,14 @@ import json
 import os
 import re
 import time
+import hashlib
+import platform
+from datetime import datetime, timezone
+from importlib.metadata import version
+from pathlib import Path
+
+from app.config import get_settings
+from app.models import Document
 
 from sqlalchemy import select
 
@@ -55,6 +63,8 @@ def _gold_sets(db, queries: list[dict]) -> dict[str, set]:
 
 
 def run(k: int, repeats: int) -> None:
+    if k < 5 or repeats < 1:
+        raise ValueError("k must be at least 5 for P@5; repeats must be positive")
     with open(QUERIES_PATH, encoding="utf-8") as f:
         spec = json.load(f)
     queries = spec["queries"]
@@ -64,14 +74,16 @@ def run(k: int, repeats: int) -> None:
         gold = _gold_sets(db, queries)
         missing = [qid for qid, g in gold.items() if not g]
         if missing:
-            print(f"WARNING: no relevant chunk found for {missing} "
-                  f"(check markers vs corpus / ingestion).")
+            raise ValueError(f"Missing relevance labels for {missing}; check markers and corpus")
 
         # Warm up models + connection so the first query doesn't skew latency.
+        cold_start = time.perf_counter()
         run_search(db, queries[0]["query"], SearchMode.rerank, k)
+        first_request_ms = (time.perf_counter() - cold_start) * 1000
 
         results: dict[str, dict] = {}
         for mode in MODES:
+            print(f"Evaluating {mode.value} ({len(queries)} queries)...", flush=True)
             per_query = {"precision_at_5": [], "recall_at_k": [],
                          "mrr": [], "ndcg_at_k": []}
             latencies: list[float] = []
@@ -106,15 +118,40 @@ def run(k: int, repeats: int) -> None:
     finally:
         db.close()
 
-    _write_outputs(results, k, len(queries), repeats)
+    import torch
+    settings = get_settings()
+    metadata = {
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "embedding_model": settings.embedding_model_name,
+        "embedding_revision": settings.embedding_model_revision,
+        "reranker_model": settings.reranker_model_name,
+        "reranker_revision": settings.reranker_model_revision,
+        "configuration": {key: getattr(settings, key) for key in
+                          ("chunk_max_tokens", "chunk_overlap_tokens", "hybrid_pool", "rerank_pool", "rrf_k")},
+        "platform": platform.platform(), "machine": platform.machine(),
+        "cpu": next((line.split(":", 1)[1].strip() for line in Path("/proc/cpuinfo").read_text().splitlines()
+                     if line.startswith("model name")), "unknown") if Path("/proc/cpuinfo").exists() else platform.processor(),
+        "torch_threads": torch.get_num_threads(),
+        "packages": {name: version(name) for name in ("torch", "transformers", "sentence-transformers", "SQLAlchemy")},
+        "first_request_including_model_load_ms": round(first_request_ms, 2),
+        "latency_scope": "warmed direct retrieval; excludes HTTP, Redis cache, network and UI",
+        "label_method": "binary marker containment; authored corpus; not independent human judgments",
+        "queries_sha256": hashlib.sha256(Path(QUERIES_PATH).read_bytes()).hexdigest(),
+        "corpus_sha256": hashlib.sha256(b"".join(p.read_bytes() for p in sorted((Path(HERE)/"corpus").glob("*.md")))).hexdigest(),
+        "precision_denominator": "fixed k (missing returned positions score zero)",
+    }
+    with SessionLocal() as session:
+        metadata["n_documents"] = len(session.execute(select(Document.id)).all())
+        metadata["n_chunks"] = len(session.execute(select(Chunk.id)).all())
+    _write_outputs(results, k, len(queries), repeats, metadata)
 
 
-def _write_outputs(results: dict, k: int, n_queries: int, repeats: int) -> None:
+def _write_outputs(results: dict, k: int, n_queries: int, repeats: int, metadata: dict) -> None:
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
     with open(os.path.join(RESULTS_DIR, "benchmark.json"), "w", encoding="utf-8") as f:
         json.dump({"k": k, "n_queries": n_queries, "repeats": repeats,
-                   "modes": results}, f, indent=2)
+                   "modes": results, "metadata": metadata}, f, indent=2)
 
     # Markdown table for the README.
     headers = ["Mode", "P@5", f"Recall@{k}", "MRR", f"nDCG@{k}",
@@ -192,5 +229,11 @@ if __name__ == "__main__":
     ap.add_argument("--k", type=int, default=10)
     ap.add_argument("--repeats", type=int, default=3,
                     help="runs per query for the latency distribution")
+    ap.add_argument("--output-dir", default=None, help="New run directory; existing benchmark.json is never overwritten")
+    ap.add_argument("--queries", default=QUERIES_PATH)
     args = ap.parse_args()
+    QUERIES_PATH = args.queries
+    RESULTS_DIR = args.output_dir or os.path.join(RESULTS_DIR, datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S"))
+    if os.path.exists(os.path.join(RESULTS_DIR, "benchmark.json")):
+        raise SystemExit("Output already contains a benchmark; choose a new --output-dir")
     run(args.k, args.repeats)
