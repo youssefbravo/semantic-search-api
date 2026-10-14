@@ -52,7 +52,7 @@ services:
       - .:/app                 # live code + benchmark results land on the host
       - uploads:/data/uploads  # shared with the worker
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${API_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,7 +63,7 @@ services:
     build: ./frontend
     image: semantic-search-frontend:portfolio
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
     depends_on:
       - api
 

@@ -31,7 +31,7 @@ check-eval:   ## Fail if nDCG drops >5% vs eval/baseline/benchmark.json
 	$(if $(CURRENT),,$(error Supply CURRENT=eval/results/<run>/benchmark.json))
 	docker compose exec api python -m eval.check_regression --max-drop 0.05 --current "$(CURRENT)"
 
-sweep:        ## Run the chunk-size sweep -> eval/results/chunk_sweep.{json,png}
+sweep:        ## Compare chunk sizes on dev probes -> a new timestamped directory
 	docker compose exec api python -m eval.chunk_sweep --sizes 200 400 500
 
 load:         ## Run a small cache-busting load smoke test against localhost:8000

@@ -7,13 +7,20 @@ retriever (semantic) makes the result clean to interpret and fast to run.
 
     python -m eval.chunk_sweep --sizes 200 400 500
 
-Turns "I picked 400 tokens" into "I measured that 400 won on my set."
+Development comparisons only; authored probes do not prove a universal optimum.
 """
 import argparse
 import glob
 import json
 import os
 import re
+import hashlib
+import platform
+from datetime import datetime, timezone
+from pathlib import Path
+import torch
+
+from app.config import get_settings
 
 import numpy as np
 
@@ -23,7 +30,7 @@ from eval.metrics import ndcg_at_k, recall_at_k
 
 HERE = os.path.dirname(__file__)
 CORPUS_DIR = os.path.join(HERE, "corpus")
-QUERIES_PATH = os.path.join(HERE, "queries.json")
+QUERIES_PATH = os.path.join(HERE, "queries.dev.json")
 RESULTS_DIR = os.path.join(HERE, "results")
 
 
@@ -64,6 +71,8 @@ def sweep(sizes: list[int], k: int) -> None:
                 i for i, c in enumerate(norm_contents)
                 if any(m in c for m in norm_markers[q["id"]])
             }
+            if not relevant:
+                raise ValueError(f"No marker labels for {q['id']} at chunk size {size}")
             sims = matrix @ query_vecs[q["id"]]  # cosine (vectors normalized)
             ranked = list(np.argsort(-sims))
             recalls.append(recall_at_k(ranked, relevant, k))
@@ -86,8 +95,20 @@ def sweep(sizes: list[int], k: int) -> None:
 
 def _write_outputs(rows: list[dict], k: int) -> None:
     os.makedirs(RESULTS_DIR, exist_ok=True)
+    if os.path.exists(os.path.join(RESULTS_DIR, "chunk_sweep.json")):
+        raise SystemExit("Output already contains a sweep; choose a new --output-dir")
+    settings = get_settings()
+    metadata = {
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "embedding_model": settings.embedding_model_name,
+        "embedding_revision": settings.embedding_model_revision,
+        "platform": platform.platform(), "torch_threads": torch.get_num_threads(),
+        "query_set": QUERIES_PATH, "queries_sha256": hashlib.sha256(Path(QUERIES_PATH).read_bytes()).hexdigest(),
+        "corpus_sha256": hashlib.sha256(b"".join(p.read_bytes() for p in sorted(Path(CORPUS_DIR).glob("*.md")))).hexdigest(),
+        "scope": "semantic-only development probes; no cache; marker relevance; not unbiased held-out evidence",
+    }
     with open(os.path.join(RESULTS_DIR, "chunk_sweep.json"), "w", encoding="utf-8") as f:
-        json.dump({"k": k, "rows": rows}, f, indent=2)
+        json.dump({"k": k, "rows": rows, "metadata": metadata}, f, indent=2)
 
     try:
         import matplotlib
@@ -117,5 +138,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--sizes", type=int, nargs="+", default=[200, 400, 500])
     ap.add_argument("--k", type=int, default=10)
+    ap.add_argument("--queries", default=QUERIES_PATH)
+    ap.add_argument("--output-dir", default=None)
     args = ap.parse_args()
+    QUERIES_PATH = args.queries
+    RESULTS_DIR = args.output_dir or os.path.join(RESULTS_DIR, datetime.now(timezone.utc).strftime("chunk-sweep-%Y%m%dT%H%M%S"))
     sweep(args.sizes, args.k)
