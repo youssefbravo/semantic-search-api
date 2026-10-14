@@ -47,19 +47,29 @@ def _split_sentences(paragraph: str) -> list[str]:
 
 def _hard_split(sentence: str, max_tokens: int) -> list[str]:
     """Fallback for a single 'sentence' longer than max_tokens (table rows, URL
-    dumps, code). Split token IDs and verify re-encoded text, including unbroken strings."""
-    tokens = _tokenizer().encode(sentence, add_special_tokens=False)
+    dumps, code). Split using tokenizer offsets and verify source text, including unbroken strings."""
+    # Offsets preserve the uploaded text's case and punctuation. Decoding token
+    # IDs can lowercase text or expose WordPiece continuation markers.
+    offsets = _tokenizer()(sentence, add_special_tokens=False,
+                           return_offsets_mapping=True)["offset_mapping"]
     out: list[str] = []
-    while tokens:
-        n = min(max_tokens, len(tokens))
-        piece = _tokenizer().decode(tokens[:n], skip_special_tokens=True).strip()
-        # Decoding and encoding can change token boundaries; verify emitted text.
-        while n > 1 and count_tokens(piece) > max_tokens:
-            n -= 1
-            piece = _tokenizer().decode(tokens[:n], skip_special_tokens=True).strip()
+    cursor = 0
+    index = 0
+    while index < len(offsets):
+        end = offsets[min(index + max_tokens, len(offsets)) - 1][1]
+        # Starting inside a word can change tokenization. Verify the actual slice.
+        while end > cursor and count_tokens(sentence[cursor:end]) > max_tokens:
+            end -= 1
+        if end <= cursor:
+            raise ValueError("Token budget cannot fit a source-text character")
+        piece = sentence[cursor:end].strip()
         if piece:
             out.append(piece)
-        tokens = tokens[n:]
+        cursor = end
+        while index < len(offsets) and offsets[index][1] <= cursor:
+            index += 1
+    if sentence[cursor:].strip():
+        out.append(sentence[cursor:].strip())
     return out
 
 
@@ -71,7 +81,7 @@ def chunk_text(
     """Recursive, token-aware chunking with sentence-level overlap.
 
     Why this strategy (defensible in interviews):
-      * Recursive split (paragraph -> sentence -> word) keeps each chunk
+      * Recursive split (paragraph -> sentence -> tokenizer offsets) keeps each chunk
         semantically coherent instead of cutting mid-thought. Coherent chunks
         produce cleaner embeddings and better recall.
       * Token-aware (not character-aware): the model's truncation limit is in
@@ -82,7 +92,7 @@ def chunk_text(
         from the following chunk, at only ~15% extra storage.
 
     max_tokens / overlap_tokens are parameters (not hardcoded) so the benchmark in
-    phase 4 can sweep them and we can SHOW the chosen value is empirically best.
+    development probes can compare them; a small authored sweep is not proof of a universal optimum.
     """
     max_tokens = settings.chunk_max_tokens if max_tokens is None else max_tokens
     overlap_tokens = settings.chunk_overlap_tokens if overlap_tokens is None else overlap_tokens

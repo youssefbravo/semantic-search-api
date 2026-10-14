@@ -48,3 +48,16 @@ def test_single_overlong_sentence_is_hard_split():
     assert len(chunks) > 1
     for c in chunks:
         assert c.token_count <= 64
+
+
+def test_hard_split_preserves_unbroken_source_text():
+    from app.chunking import _hard_split
+    source = "ABcd-" * 200
+    pieces = _hard_split(source, 40)
+    assert "".join(pieces) == source
+    assert all(count_tokens(p) <= 40 for p in pieces)
+
+
+def test_tiny_token_budget_still_respected():
+    chunks = chunk_text("ExtraordinaryAbCd-" * 5, 1, 0)
+    assert all(c.token_count <= 1 for c in chunks)
